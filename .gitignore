@@ -1,0 +1,28 @@
+# Installed dependencies
+node_modules/
+
+# Production build output
+dist/
+
+# Local environment variables and secrets
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+
+# Test coverage
+coverage/
+
+# Operating system files
+.DS_Store
+Thumbs.db
+
+# Editor settings
+.vscode/
+.idea/
+
+# Local hosting tool files
+.wrangler/
+.sites-runtime/
