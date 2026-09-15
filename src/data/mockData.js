@@ -9,4 +9,3 @@ export const applicants = [
   { id: 2, name: 'Jordan Lee', skills: 'Python, SQL, Git', education: 'B.S. Data Science', experience: 'Data pipeline capstone project', status: 'New' }
 ];
 export const emptyProfile = { name: '', skills: '', experience: '', education: '', certifications: '', title: 'Software Engineer', location: '', mode: 'Any', type: 'Any', resumeName: '' };
-
