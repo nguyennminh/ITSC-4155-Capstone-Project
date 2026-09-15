@@ -19,4 +19,3 @@ export function filterJobs(jobs, query, mode, type) {
     && (mode === 'Any' || job.mode === mode)
     && (type === 'Any' || job.type === type));
 }
-
