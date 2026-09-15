@@ -1,13 +1,234 @@
+/* Global styles */
+
+:root {
+  font-family: Arial, sans-serif;
+  color: #17324d;
+  background: #f4f7fa;
+  font-size: 16px;
+  line-height: 1.5;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+}
+
+h1 {
+  font-size: 2rem;
+  line-height: 1.2;
+}
+
+h2 {
+  font-size: 1.4rem;
+}
+
+h3 {
+  font-size: 1.05rem;
+}
+
+button,
+input,
+textarea,
+select {
+  font: inherit;
+}
+
+button {
+  padding: 0.65rem 1rem;
+  border: 1px solid #c5d2de;
+  border-radius: 6px;
+  background: white;
+  color: #17324d;
+  cursor: pointer;
+}
+
+button:hover {
+  background: #e9f3f4;
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.primary,
+button.active {
+  background: #087f83;
+  color: white;
+  border-color: #087f83;
+}
+
+.primary:hover,
+button.active:hover {
+  background: #06666a;
+}
+
+:focus-visible {
+  outline: 3px solid #d78b00;
+  outline-offset: 3px;
+}
+
+label {
+  display: block;
+  margin: 1rem 0;
+  font-weight: bold;
+}
+
+input,
+textarea,
+select {
+  width: 100%;
+  margin-top: 0.4rem;
+  padding: 0.65rem;
+  border: 1px solid #a8bbc9;
+  border-radius: 5px;
+  background: white;
+  color: #17324d;
+}
+
+textarea {
+  resize: vertical;
+}
+
+/* Navigation */
+
+.navigation {
+  display: flex;
+  align-items: center;
+  gap: 1.5rem;
+  padding: 1rem 4%;
+  background: white;
+  border-bottom: 1px solid #dce4eb;
+}
+
+.navigation nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  flex: 1;
+}
+
+.brand {
+  color: #087f83;
+  font-size: 1.6rem;
+}
+
+/* Shared page layouts */
+
+.container {
+  max-width: 1100px;
+  padding: 1.5rem;
+  margin: auto;
+}
+
+.card {
+  background: white;
+  border: 1px solid #d7e0e8;
+  border-radius: 8px;
+  padding: 1.5rem;
+  margin: 1rem 0;
+}
+
+.two-columns,
+.job-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1.5rem;
+  align-items: start;
+}
+
+.actions,
+.tags,
+.row,
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.7rem;
+  align-items: center;
+}
+
+.actions {
+  margin-top: 1.3rem;
+}
+
+.row {
+  justify-content: space-between;
+}
+
+.filters label {
+  flex: 1;
+  min-width: 200px;
+}
+
+.tags span,
+.badge {
+  padding: 0.25rem 0.6rem;
+  background: #e8f3f3;
+  border-radius: 5px;
+}
+
+.muted,
+small,
+.demo-label {
+  color: #526778;
+}
+
+small,
+.demo-label {
+  font-size: 0.875rem;
+}
+
+.notice {
+  border-left: 4px solid #087f83;
+  background: #e8f3f3;
+  padding: 1rem;
+}
+
+/* Login */
+
+.login-layout {
+  max-width: 1000px;
+  min-height: 100vh;
+  margin: auto;
+  padding: 2rem;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 3rem;
+  align-items: center;
+}
+
+.login-layout h1 {
+  font-size: 2.6rem;
+}
+
+.login-layout button {
+  margin: 0.4rem 0.4rem 0.4rem 0;
+}
+
+/* Onboarding */
+
+.dropzone {
+  padding: 2rem;
+  border: 2px dashed #087f83;
+  border-radius: 6px;
+}
+
+/* Job discovery */
+
+.swipe-surface {
+  max-width: 720px;
+  touch-action: pan-y;
+}
+
+/* Profile */
+
 .profile-page {
   max-width: 850px;
   margin: 0 auto;
-  padding: 32px 20px;
-  color: #172b3a;
-}
-
-.profile-page,
-.profile-page * {
-  box-sizing: border-box;
+  padding: 1rem 0;
 }
 
 .profile-page h1 {
@@ -15,7 +236,7 @@
 }
 
 .profile-page > p {
-  color: #526572;
+  color: #526778;
   line-height: 1.6;
 }
 
@@ -23,13 +244,13 @@
   margin-top: 24px;
   padding: 24px;
   background: white;
-  border: 1px solid #dbe3e8;
-  border-radius: 12px;
+  border: 1px solid #d7e0e8;
+  border-radius: 8px;
 }
 
 .profile-panel h2 {
   margin: 24px 0 16px;
-  font-size: 20px;
+  font-size: 1.4rem;
 }
 
 .profile-panel h2:first-child {
@@ -46,30 +267,21 @@
   display: flex;
   flex-direction: column;
   gap: 8px;
-  margin-bottom: 16px;
+  margin: 0 0 16px;
   font-weight: 600;
 }
 
 .profile-panel input,
 .profile-panel textarea,
 .profile-panel select {
-  width: 100%;
+  margin-top: 0;
   padding: 11px 12px;
-  border: 1px solid #aebec8;
   border-radius: 6px;
-  background: white;
-  color: #172b3a;
-  font: inherit;
-}
-
-.profile-panel textarea {
-  resize: vertical;
 }
 
 .profile-panel small {
   display: block;
   margin: -8px 0 20px;
-  color: #526572;
 }
 
 .profile-actions {
@@ -81,38 +293,33 @@
 
 .profile-panel button {
   padding: 11px 18px;
-  border: 1px solid #087f75;
+  border: 1px solid #087f83;
   border-radius: 6px;
-  background: #087f75;
+  background: #087f83;
   color: white;
-  font: inherit;
   font-weight: 600;
-  cursor: pointer;
 }
 
 .profile-panel button:hover {
-  background: #06665e;
+  background: #06666a;
 }
 
 .profile-panel .secondary-button {
   background: white;
-  color: #087f75;
+  color: #087f83;
 }
 
 .profile-panel .secondary-button:hover {
-  background: #edf8f6;
+  background: #e8f3f3;
 }
 
-.profile-panel :is(input, textarea, select, button):focus-visible {
-  outline: 3px solid #1367bc;
-  outline-offset: 3px;
-}
+/* Resume selection */
 
 .resume-details {
   margin-top: 16px;
   padding: 16px;
   border-radius: 6px;
-  background: #edf8f6;
+  background: #e8f3f3;
   overflow-wrap: anywhere;
 }
 
@@ -133,12 +340,65 @@
   color: #086b42;
 }
 
-@media (max-width: 600px) {
+.profile-error:empty,
+.profile-success:empty {
+  display: none;
+}
+
+/* Mobile layouts */
+
+@media (max-width: 700px) {
+  .navigation {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 0.6rem;
+  }
+
+  .login-layout,
+  .two-columns,
+  .job-grid,
   .profile-grid {
     grid-template-columns: 1fr;
+    gap: 1rem;
+  }
+
+  .login-layout {
+    padding: 1.2rem;
+    min-height: auto;
+  }
+
+  .container {
+    padding: 1rem;
+  }
+
+  .card {
+    padding: 1rem;
+  }
+
+  h1,
+  .login-layout h1 {
+    font-size: 1.8rem;
+  }
+
+  .row {
+    align-items: flex-start;
+    flex-direction: column;
   }
 
   .profile-panel {
     padding: 18px;
+  }
+
+  .profile-grid {
+    gap: 0;
+  }
+
+  .filters label {
+    min-width: 0;
+    flex-basis: 100%;
+  }
+
+  .dropzone {
+    padding: 1rem;
   }
 }

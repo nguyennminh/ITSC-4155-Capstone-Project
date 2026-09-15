@@ -1,62 +1,87 @@
-import React, { use, useEffect, useState } from 'react';
-import Navigation from './components/Navigation.jsx';
-import Login from './pages/Login.jsx';
-import Onboarding from './pages/Onboarding.jsx';
-import Discover from './pages/Discover.jsx';
-import SavedJobs from './pages/SavedJobs.jsx';
-import Applications from './pages/Applications.jsx';
-import Recruiter from './pages/Recruiter.jsx';
-import Profile from "./pages/Profile.jsx"
+import React, { useEffect, useState } from "react";
 
-import { emptyProfile } from './data/mockData.js';
-import { getJobs } from './services/jobService.js';
+import Navigation from "./components/Navigation.jsx";
+import Login from "./pages/Login.jsx";
+import Onboarding from "./pages/Onboarding.jsx";
+import Discover from "./pages/Discover.jsx";
+import SavedJobs from "./pages/SavedJobs.jsx";
+import Applications from "./pages/Applications.jsx";
+import Recruiter from "./pages/Recruiter.jsx";
+import Profile from "./pages/Profile.jsx";
 
-// creating email profile
-const intialProfile = {
+import { emptyProfile } from "./data/mockData.js";
+import { getJobs } from "./services/jobService.js";
+
+const initialProfile = {
   ...emptyProfile,
-  email:"",
+  email: "",
 };
 
 export default function App() {
-  // Shared state lives here so the pages stay simple. Refresh resets the demo.
-  const [page, setPage] = useState('login');
-  const [role, setRole] = useState('Job seeker');
-  const [profile, setProfile] = useState({...intialProfile});
+  // Navigation and user information
+  const [page, setPage] = useState("login");
+  const [role, setRole] = useState("Job seeker");
+  const [profile, setProfile] = useState({ ...initialProfile });
   const [resume, setResume] = useState(null);
+
+  // Jobs and application tracking
   const [jobs, setJobs] = useState([]);
   const [saved, setSaved] = useState([]);
   const [applications, setApplications] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState('');
-  const [message, setMessage] = useState('');
 
-  // loading sample jobs (placeholder)
+  // Feedback
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [message, setMessage] = useState("");
+
   useEffect(() => {
-    loadJobs();  
+    loadJobs();
   }, []);
 
   async function loadJobs() {
     setLoading(true);
-    setError('');
-    try { 
+    setError("");
+
+    try {
       const results = await getJobs();
       setJobs(results);
-     }
-    catch { setError('Could not load jobs. Please retry.'); }
-    finally { setLoading(false); }
+    } catch {
+      setError("Could not load jobs. Please retry.");
+    } finally {
+      setLoading(false);
+    }
   }
-  useEffect(() => { loadJobs(); }, []);
 
   function enter(name, selectedRole) {
-    setProfile({ ...initialProfile, name });
-    setResume(null);
-    setRole(selectedRole);
-    setMessage('');
-    setPage(selectedRole === 'Recruiter' ? 'recruiter' : 'onboarding');
-  }
-  function navigate(nextPage) { setPage(nextPage); setMessage(''); }
+    setProfile({
+      ...initialProfile,
+      name,
+    });
 
-  // Keep the selected File in memory.
+    setResume(null);
+    setSaved([]);
+    setApplications([]);
+    setRole(selectedRole);
+    setMessage("");
+
+    setPage(
+      selectedRole === "Recruiter" ? "recruiter" : "onboarding"
+    );
+  }
+
+  function navigate(nextPage) {
+    setPage(nextPage);
+    setMessage("");
+  }
+
+  function saveProfile(updatedProfile) {
+    setProfile((current) => ({
+      ...current,
+      ...updatedProfile,
+      resumeName: current.resumeName,
+    }));
+  }
+
   function changeResume(file) {
     setResume(file);
 
@@ -67,13 +92,9 @@ export default function App() {
   }
 
   function saveJob(id) {
-    setSaved((current) => {
-      if (current.includes(id)) {
-        return current;
-      }
-
-      return [...current, id];
-    });
+    setSaved((current) =>
+      current.includes(id) ? current : [...current, id]
+    );
 
     setMessage("Job saved.");
   }
@@ -94,13 +115,7 @@ export default function App() {
         return current;
       }
 
-      return [
-        ...current,
-        {
-          ...job,
-          status: "Started",
-        },
-      ];
+      return [...current, { ...job, status: "Started" }];
     });
 
     navigate("applications");
@@ -130,7 +145,6 @@ export default function App() {
     setPage("login");
   }
 
-  // The login page does not show the main navigation.
   if (page === "login") {
     return <Login onEnter={enter} />;
   }
@@ -157,7 +171,6 @@ export default function App() {
           </p>
         )}
 
-        {/* Initial setup after entering as a job seeker */}
         {page === "onboarding" && (
           <Onboarding
             profile={profile}
@@ -166,7 +179,6 @@ export default function App() {
           />
         )}
 
-        {/* Manage profile and select or remove a resume */}
         {page === "profile" && (
           <Profile
             profile={profile}
@@ -181,7 +193,7 @@ export default function App() {
         )}
 
         {error && isJobPage && (
-          <div role="alert">
+          <div className="notice" role="alert">
             <p>{error}</p>
             <button type="button" onClick={loadJobs}>
               Retry
@@ -189,7 +201,6 @@ export default function App() {
           </div>
         )}
 
-        {/* Browse and save recommended jobs */}
         {!loading && !error && page === "discover" && (
           <Discover
             jobs={jobs}
@@ -200,7 +211,6 @@ export default function App() {
           />
         )}
 
-        {/* View and remove saved jobs */}
         {!loading && !error && page === "saved" && (
           <SavedJobs
             jobs={jobs}
@@ -211,7 +221,6 @@ export default function App() {
           />
         )}
 
-        {/* Track application statuses manually */}
         {page === "applications" && (
           <Applications
             applications={applications}
@@ -219,7 +228,6 @@ export default function App() {
           />
         )}
 
-        {/* Recruiter demo */}
         {page === "recruiter" && <Recruiter />}
       </div>
     </>
