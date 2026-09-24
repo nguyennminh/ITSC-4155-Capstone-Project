@@ -1,4 +1,4 @@
-import { useState } from "react";
+import React, { useState } from "react";
 import ResumeUpload from "../components/ResumeUpload";
 
 export default function Profile({
@@ -6,6 +6,7 @@ export default function Profile({
   onSaveProfile,
   resume,
   onResumeChange,
+  onReviewResume,
 }) {
   const [form, setForm] = useState({ ...profile });
   const [message, setMessage] = useState("");
@@ -67,6 +68,9 @@ export default function Profile({
         resume={resume}
         onResumeChange={onResumeChange}
       />
+
+      <p className="notice">To extract a new resume or confirm your information for AI matching, use the review flow. Save any edits below before leaving this page.</p>
+      <button type="button" onClick={onReviewResume}>Parse / review resume information</button>
 
       <form className="profile-panel" onSubmit={handleSubmit}>
         <h2>Personal information</h2>
