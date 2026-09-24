@@ -2,7 +2,7 @@ import React, { useEffect, useState } from "react";
 
 import Navigation from "./components/Navigation.jsx";
 import Login from "./pages/Login.jsx";
-import Onboarding from "./pages/Onboarding.jsx";
+import ResumeWorkflow from "./pages/ResumeWorkflow.jsx";
 import Discover from "./pages/Discover.jsx";
 import SavedJobs from "./pages/SavedJobs.jsx";
 import Applications from "./pages/Applications.jsx";
@@ -23,6 +23,7 @@ export default function App() {
   const [role, setRole] = useState("Job seeker");
   const [profile, setProfile] = useState({ ...initialProfile });
   const [resume, setResume] = useState(null);
+  const [profileConfirmed, setProfileConfirmed] = useState(false);
 
   // Jobs and application tracking
   const [jobs, setJobs] = useState([]);
@@ -59,6 +60,7 @@ export default function App() {
     });
 
     setResume(null);
+    setProfileConfirmed(false);
     setSaved([]);
     setApplications([]);
     setRole(selectedRole);
@@ -75,6 +77,7 @@ export default function App() {
   }
 
   function saveProfile(updatedProfile) {
+    setProfileConfirmed(false);
     setProfile((current) => ({
       ...current,
       ...updatedProfile,
@@ -82,7 +85,15 @@ export default function App() {
     }));
   }
 
+  function confirmResume(updatedProfile, file) {
+    setProfile({ ...updatedProfile, resumeName: file?.name || "" });
+    setResume(file);
+    setProfileConfirmed(true);
+    navigate(page === "onboarding" ? "discover" : "profile");
+  }
+
   function changeResume(file) {
+    setProfileConfirmed(false);
     setResume(file);
 
     setProfile((current) => ({
@@ -138,6 +149,7 @@ export default function App() {
   function logout() {
     setProfile({ ...initialProfile });
     setResume(null);
+    setProfileConfirmed(false);
     setSaved([]);
     setApplications([]);
     setMessage("");
@@ -171,11 +183,13 @@ export default function App() {
           </p>
         )}
 
-        {page === "onboarding" && (
-          <Onboarding
+        {["onboarding", "resume"].includes(page) && (
+          <ResumeWorkflow
+            key={page}
             profile={profile}
-            setProfile={setProfile}
-            finish={() => navigate("discover")}
+            resume={resume}
+            onConfirm={confirmResume}
+            onCancel={() => navigate(page === "onboarding" ? "discover" : "profile")}
           />
         )}
 
@@ -185,6 +199,7 @@ export default function App() {
             onSaveProfile={saveProfile}
             resume={resume}
             onResumeChange={changeResume}
+            onReviewResume={() => navigate("resume")}
           />
         )}
 
@@ -203,6 +218,9 @@ export default function App() {
 
         {!loading && !error && page === "discover" && (
           <Discover
+            key={JSON.stringify(profile)}
+            confirmed={profileConfirmed}
+            onReview={() => navigate("resume")}
             jobs={jobs}
             profile={profile}
             saved={saved}
