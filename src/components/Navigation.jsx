@@ -12,4 +12,3 @@ export default function Navigation({ page, navigate, role, logout }) {
     <button onClick={logout}>Exit demo</button>
   </header>;
 }
-

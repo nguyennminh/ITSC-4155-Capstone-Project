@@ -14,4 +14,3 @@ export default function JobCard({ job, skills, children }) {
     <div className="actions">{children}</div>
   </article>;
 }
-
