@@ -402,3 +402,8 @@ small,
     padding: 1rem;
   }
 }
+/* Resume review and AI matching additions */
+.checkbox-label { display: flex; align-items: flex-start; gap: .7rem; font-weight: normal; }
+.checkbox-label input { width: auto; flex: 0 0 auto; margin-top: .3rem; }
+.resume-text { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 700px; overflow: auto; font: inherit; font-size: .9rem; }
+.two-columns > * { min-width: 0; }
