@@ -11,6 +11,7 @@ import Profile from "./pages/Profile.jsx";
 
 import { emptyProfile } from "./data/mockData.js";
 import { getJobs } from "./services/jobService.js";
+import { api, jsonPost } from "./services/resumeService.js";
 
 const initialProfile = {
   ...emptyProfile,
@@ -20,6 +21,8 @@ const initialProfile = {
 export default function App() {
   // Navigation and user information
   const [page, setPage] = useState("login");
+  const [sessionLoading, setSessionLoading] = useState(true);
+  const [sessionError, setSessionError] = useState("");
   const [role, setRole] = useState("Job seeker");
   const [profile, setProfile] = useState({ ...initialProfile });
   const [resume, setResume] = useState(null);
@@ -37,7 +40,18 @@ export default function App() {
 
   useEffect(() => {
     loadJobs();
+    restoreSession();
   }, []);
+
+  async function restoreSession() {
+    setSessionLoading(true);
+    setSessionError("");
+    try {
+      const { user } = await api('/api/auth/me');
+      if (user) enter(user);
+    } catch (err) { setSessionError(err.message); }
+    finally { setSessionLoading(false); }
+  }
 
   async function loadJobs() {
     setLoading(true);
@@ -53,22 +67,15 @@ export default function App() {
     }
   }
 
-  function enter(name, selectedRole) {
-    setProfile({
-      ...initialProfile,
-      name,
-    });
-
+  function enter(user) {
+    setProfile(user.profile);
+    setProfileConfirmed(user.confirmed);
+    setRole(user.role);
     setResume(null);
-    setProfileConfirmed(false);
     setSaved([]);
     setApplications([]);
-    setRole(selectedRole);
     setMessage("");
-
-    setPage(
-      selectedRole === "Recruiter" ? "recruiter" : "onboarding"
-    );
+    setPage(user.role === "Recruiter" ? "recruiter" : user.confirmed ? "discover" : "onboarding");
   }
 
   function navigate(nextPage) {
@@ -76,30 +83,16 @@ export default function App() {
     setMessage("");
   }
 
-  function saveProfile(updatedProfile) {
-    setProfileConfirmed(false);
-    setProfile((current) => ({
-      ...current,
-      ...updatedProfile,
-      resumeName: current.resumeName,
-    }));
+  async function saveProfile(updatedProfile) {
+    const { user } = await jsonPost('/api/profile/confirm', { confirmed: true, profile: updatedProfile });
+    setProfile(user.profile);
+    setProfileConfirmed(user.confirmed);
   }
 
-  function confirmResume(updatedProfile, file) {
-    setProfile({ ...updatedProfile, resumeName: file?.name || "" });
+  async function confirmResume(updatedProfile, file) {
+    await saveProfile({ ...updatedProfile, resumeName: file?.name || updatedProfile.resumeName || "" });
     setResume(file);
-    setProfileConfirmed(true);
     navigate(page === "onboarding" ? "discover" : "profile");
-  }
-
-  function changeResume(file) {
-    setProfileConfirmed(false);
-    setResume(file);
-
-    setProfile((current) => ({
-      ...current,
-      resumeName: file ? file.name : "",
-    }));
   }
 
   function saveJob(id) {
@@ -146,7 +139,9 @@ export default function App() {
     );
   }
 
-  function logout() {
+  async function logout() {
+    try { await jsonPost('/api/auth/logout', {}); }
+    catch (err) { setMessage(err.message); return; }
     setProfile({ ...initialProfile });
     setResume(null);
     setProfileConfirmed(false);
@@ -157,6 +152,8 @@ export default function App() {
     setPage("login");
   }
 
+  if (sessionLoading) return <main className="container"><p role="status">Loading your account…</p></main>;
+  if (sessionError) return <main className="container"><p role="alert">{sessionError}</p><button onClick={restoreSession}>Retry connection</button></main>;
   if (page === "login") {
     return <Login onEnter={enter} />;
   }
@@ -174,7 +171,7 @@ export default function App() {
 
       <div className="container">
         <p className="demo-label">
-          Student starter · fictional data · changes reset on refresh
+          Sample job listings · resume profiles are saved · job tracking remains a session-only demo
         </p>
 
         {message && (
@@ -198,7 +195,6 @@ export default function App() {
             profile={profile}
             onSaveProfile={saveProfile}
             resume={resume}
-            onResumeChange={changeResume}
             onReviewResume={() => navigate("resume")}
           />
         )}

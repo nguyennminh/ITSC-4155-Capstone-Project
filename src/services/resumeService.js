@@ -1,21 +1,20 @@
-async function readResponse(response) {
+export async function api(path, options = {}) {
+  const response = await fetch(path, { ...options, credentials: 'same-origin' });
   const body = await response.json().catch(() => null);
   if (!response.ok) throw new Error(body?.error || 'Request failed. Make sure npm run server is running.');
   if (!body) throw new Error('No API response. Make sure npm run server is running.');
   return body;
 }
-
+export function jsonPost(path, body) {
+  return api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+}
 export async function parseResume(file, signal) {
   const form = new FormData();
   form.append('resume', file);
-  return readResponse(await fetch('/api/resumes/parse', { method: 'POST', body: form, signal }));
+  return api('/api/resumes/parse', { method: 'POST', body: form, signal });
 }
-
-export async function getAiMatches(profile, signal) {
-  const { skills, experience, education, certifications, title, location, mode, type } = profile;
-  return readResponse(await fetch('/api/jobs/match', {
-    method: 'POST', signal, headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ confirmed: true,
-      profile: { skills, experience, education, certifications, title, location, mode, type } }),
-  }));
+export function getMatches(useAi, signal) {
+  // Qualifications come from the server's saved confirmed profile, not browser claims.
+  return api('/api/jobs/match', { method: 'POST', signal,
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ useAi }) });
 }
