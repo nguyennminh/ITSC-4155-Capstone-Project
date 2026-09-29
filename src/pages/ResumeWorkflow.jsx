@@ -1,15 +1,22 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ResumeUpload from '../components/ResumeUpload.jsx';
 import ReviewResume from './ReviewResume.jsx';
-import { parseResume } from '../services/resumeService.js';
+import { api, parseResume } from '../services/resumeService.js';
 
 export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel }) {
   const [file, setFile] = useState(resume);
   const [result, setResult] = useState(null);
+  const [draft, setDraft] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const controller = useRef(null);
-  useEffect(() => () => controller.current?.abort(), []);
+  useEffect(() => {
+    const request = new AbortController();
+    api('/api/resumes/latest', { signal: request.signal }).then(data => setDraft(data.draft)).catch(err => {
+      if (!request.signal.aborted) setError(err.message);
+    });
+    return () => { request.abort(); controller.current?.abort(); };
+  }, []);
 
   function changeFile(nextFile) {
     controller.current?.abort();
@@ -34,7 +41,7 @@ export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel })
     }
   }
   if (result) return <ReviewResume
-    initialProfile={{ ...profile, ...result.fields }}
+    initialProfile={{ ...profile, ...result.fields, resumeName: result.resumeName || profile.resumeName }}
     rawText={result.rawText} warnings={result.warnings}
     onBack={() => setResult(null)}
     onConfirm={updated => onConfirm(updated, file)}
@@ -42,8 +49,9 @@ export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel })
   return <section>
     <h1>Upload and parse your resume</h1>
     <p>Choose a PDF or DOCX, extract its text, then review the fields before saving.</p>
+    {draft && <p className="notice">An unfinished parsed resume is saved to your account: {draft.resumeName}. <button onClick={() => setResult(draft)}>Resume saved review</button></p>}
     <ResumeUpload resume={file} onResumeChange={changeFile}/>
-    <p className="muted">Parsing sends the file to your local JobSwipe API. Files are processed in memory and are not saved to disk. Scanned PDFs are not supported.</p>
+    <p className="muted">Parsing sends the file to your local JobSwipe API. The original file is processed in memory; extracted text is saved privately to your account for review. Scanned PDFs are not supported.</p>
     <div className="actions">
       <button className="primary" disabled={!file || loading} onClick={parse}>{loading ? 'Parsing…' : 'Parse resume'}</button>
       <button disabled={loading} onClick={() => setResult({ fields: {}, rawText: '', warnings: [] })}>Enter details manually</button>
