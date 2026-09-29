@@ -1,0 +1,50 @@
+import { test, expect } from '@playwright/test';
+
+// Uses a temporary database and fictional resumes. No Gemini key or request required.
+test('PBIs 10/11/14: upload, review edits/removals, reload, re-login and match saved data', async ({ page }) => {
+  const email = `student-${Date.now()}@example.com`;
+  const errors = [];
+  page.on('pageerror', err => errors.push(err.message));
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create an account' }).click();
+  await page.getByLabel('Name', { exact: true }).fill('Alex Student');
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill('long-test-password');
+  await page.getByRole('button', { name: 'Create account', exact: true }).click();
+  await page.getByLabel('Select your resume').setInputFiles('test/fixtures/resume.docx');
+  await page.getByRole('button', { name: 'Parse resume', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Review your resume information' })).toBeVisible();
+  // Refresh before confirmation: the parsed draft must survive.
+  await page.reload();
+  await page.getByRole('button', { name: 'Resume saved review' }).click();
+  await expect(page.getByLabel('Skills (comma-separated)')).toHaveValue(/Python/);
+  await page.getByLabel('Skills (comma-separated)').fill('Python, SQL');
+  await page.getByLabel('Experience and projects').fill('');
+  await page.getByLabel('Certifications', { exact: true }).fill('');
+  await page.getByLabel('Education', { exact: true }).fill('Corrected university');
+  await expect(page.getByRole('button', { name: 'Confirm information' })).toBeDisabled();
+  await page.getByLabel('I reviewed these fields').check();
+  await page.getByLabel('Preferred job title').fill('');
+  await expect(page.getByRole('button', { name: 'Confirm information' })).toBeDisabled();
+  await page.getByLabel('I reviewed these fields').check();
+  await page.getByRole('button', { name: 'Confirm information' }).click();
+  await expect(page.getByRole('heading', { name: 'Data Engineering Intern' })).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'Data Engineering Intern' })).toBeVisible();
+  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await expect(page.getByLabel('Education', { exact: true })).toHaveValue('Corrected university');
+  await expect(page.getByLabel('Experience and projects')).toHaveValue('');
+  await expect(page.getByLabel('Certifications', { exact: true })).toHaveValue('');
+  await page.getByRole('button', { name: 'Sign out' }).click();
+  await page.getByLabel('Email', { exact: true }).fill(email);
+  await page.getByLabel('Password', { exact: true }).fill('long-test-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Data Engineering Intern' })).toBeVisible();
+  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await page.getByLabel('Skills', { exact: true }).fill('React, JavaScript, CSS');
+  await page.getByRole('button', { name: 'Save and confirm changes' }).click();
+  await expect(page.getByRole('status')).toContainText('Confirmed profile saved');
+  await page.getByRole('button', { name: 'Discover', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Frontend Developer', exact: true })).toBeVisible();
+  expect(errors).toEqual([]);
+});

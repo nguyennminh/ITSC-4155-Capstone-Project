@@ -8,7 +8,8 @@
     "build": "vite build",
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
-    "server": "node --watch server/index.js"
+    "server": "node --watch server/index.js",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "dotenv": "18.0.3",
@@ -22,6 +23,7 @@
     "zod": "4.6.5"
   },
   "devDependencies": {
+    "@playwright/test": "1.58.2",
     "vite": "8.0.13"
   },
   "engines": {
