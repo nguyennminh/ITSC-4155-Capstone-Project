@@ -6,7 +6,7 @@ import { jobs } from '../src/data/mockData.js';
 import { extractText } from './services/extractText.js';
 import { parseResumeFields } from './services/resumeFields.js';
 import { ApiError, matchJobs } from './services/aiMatcher.js';
-import { rankJobs } from './services/matching.js';
+import { rankJobs } from './matching.js';
 import { openStore, publicUser } from './store.js';
 import { hashPassword, verifyPassword, sessionHash, issueSession, clearSession } from './auth.js';
 
