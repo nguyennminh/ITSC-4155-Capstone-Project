@@ -1,16 +1,16 @@
 import React, { useState } from "react";
-import ResumeUpload from "../components/ResumeUpload";
+
 
 export default function Profile({
   profile,
   onSaveProfile,
   resume,
-  onResumeChange,
   onReviewResume,
 }) {
   const [form, setForm] = useState({ ...profile });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -24,7 +24,7 @@ export default function Profile({
     setError("");
   }
 
-  function handleSubmit(event) {
+  async function handleSubmit(event) {
     event.preventDefault();
 
     if (!form.name.trim()) {
@@ -44,10 +44,14 @@ export default function Profile({
       certifications: form.certifications.trim(),
     };
 
-    onSaveProfile(updatedProfile);
-    setForm(updatedProfile);
-    setError("");
-    setMessage("Profile saved for this session.");
+    setBusy(true);
+    try {
+      await onSaveProfile(updatedProfile);
+      setForm(updatedProfile);
+      setError("");
+      setMessage("Confirmed profile saved to your account.");
+    } catch (err) { setError(err.message); }
+    finally { setBusy(false); }
   }
 
   function cancelChanges() {
@@ -61,15 +65,12 @@ export default function Profile({
       <h1>Manage your profile</h1>
       <p>
         Update your information and job preferences.
-        Changes reset when you refresh this demo.
+        Saved information stays with your account when you return.
       </p>
 
-      <ResumeUpload
-        resume={resume}
-        onResumeChange={onResumeChange}
-      />
+      <p>Resume: {profile.resumeName || "No resume parsed yet"}</p>
 
-      <p className="notice">To extract a new resume or confirm your information for AI matching, use the review flow. Save any edits below before leaving this page.</p>
+      <p className="notice">To extract a new resume or confirm your information for matching, use the review flow. Save any edits below before leaving this page.</p>
       <button type="button" onClick={onReviewResume}>Parse / review resume information</button>
 
       <form className="profile-panel" onSubmit={handleSubmit}>
@@ -204,8 +205,9 @@ export default function Profile({
         <p className="profile-error" role="alert">{error}</p>
         <p className="profile-success" role="status">{message}</p>
 
+        <p>By saving, you confirm these fields are accurate and can be used for future matching.</p>
         <div className="profile-actions">
-          <button type="submit">Save changes</button>
+          <button type="submit" disabled={busy}>{busy ? "Saving…" : "Save and confirm changes"}</button>
 
           <button
             type="button"

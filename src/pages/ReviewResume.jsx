@@ -7,12 +7,17 @@ export default function ReviewResume({ initialProfile, rawText = '', warnings = 
     setForm(current => ({ ...current, [event.target.name]: event.target.value }));
     setConfirmed(false);
   }
-  function submit(event) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState('');
+  async function submit(event) {
     event.preventDefault();
     if (!confirmed || !form.name.trim()) return;
     const trimmed = Object.fromEntries(Object.entries(form).map(([key, value]) =>
       [key, typeof value === 'string' ? value.trim() : value]));
-    onConfirm(trimmed);
+    setBusy(true); setError('');
+    try { await onConfirm(trimmed); }
+    catch (err) { setError(err.message); }
+    finally { setBusy(false); }
   }
   return <section>
     <h1>Review your resume information</h1>
@@ -37,9 +42,10 @@ export default function ReviewResume({ initialProfile, rawText = '', warnings = 
         <label className="checkbox-label"><input type="checkbox" checked={confirmed} onChange={event => setConfirmed(event.target.checked)}/>
           I reviewed these fields and want to use them for matching.
         </label>
+        {error && <p role="alert" className="profile-error">{error}</p>}
         <div className="actions">
-          <button type="button" onClick={onBack}>Back</button>
-          <button className="primary" disabled={!confirmed || !form.name.trim()}>Confirm information</button>
+          <button type="button" disabled={busy} onClick={onBack}>Back</button>
+          <button className="primary" disabled={busy || !confirmed || !form.name.trim()}>{busy ? "Saving…" : "Confirm information"}</button>
         </div>
       </form>
       <aside className="card">
