@@ -9,6 +9,6 @@ export default function Navigation({ page, navigate, role, logout }) {
     <nav aria-label="Main navigation">
       {links.map(([id, label]) => <button key={id} className={page === id ? 'active' : ''} aria-current={page === id ? 'page' : undefined} onClick={() => navigate(id)}>{label}</button>)}
     </nav>
-    <button onClick={logout}>Exit demo</button>
+    <button onClick={logout}>Sign out</button>
   </header>;
 }

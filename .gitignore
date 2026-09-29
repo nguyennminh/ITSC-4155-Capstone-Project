@@ -26,3 +26,12 @@ Thumbs.db
 # Local hosting tool files
 .wrangler/
 .sites-runtime/
+# Local account / resume database (never commit personal data)
+server/data/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+
+# Browser test output
+playwright-report/
+test-results/
