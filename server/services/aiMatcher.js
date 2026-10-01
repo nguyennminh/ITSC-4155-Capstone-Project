@@ -44,7 +44,7 @@ export function validateMatches(value, jobs) {
 }
 
 export async function matchJobs(profile, jobs, { apiKey = process.env.GEMINI_API_KEY,
-  model = process.env.GEMINI_MODEL || 'gemini-2.5-flash-lite', fetchImpl = fetch } = {}) {
+  model = process.env.GEMINI_MODEL || 'gemini-3.5-flash-lite', fetchImpl = fetch } = {}) {
   if (!jobs.length) return [];
   if (!apiKey) throw new ApiError(503, 'AI matching is not configured. Add GEMINI_API_KEY to the server .env file and restart it.');
   if (!/^[a-zA-Z0-9._-]+$/.test(model)) throw new ApiError(503, 'Set GEMINI_MODEL to a valid model ID.');

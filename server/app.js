@@ -99,7 +99,13 @@ export function createApp({ store = openStore(), extract = extractText, explain 
         const eligible = jobs.filter(job => matches.some(match => match.jobId === job.id));
         const explanations = await explain({ skills, experience, education, certifications, title, location, mode, type }, eligible);
         matches = matches.map(match => ({ ...match, aiReasons: explanations.find(item => item.jobId === match.jobId)?.reasons || [] }));
-      } catch { warning = 'Gemini explanations are unavailable. Your consistent matching scores are still shown.'; }
+      } catch (error) {
+        const keyIssue = !process.env.GEMINI_API_KEY ? 'The server is missing a valid GEMINI_API_KEY in its .env file.'
+          : 'The configured Gemini key or model access is not valid for this app.';
+        const detail = error?.message || 'The request was rejected by Gemini.';
+        console.warn('[AI explanations] Gemini request failed:', detail);
+        warning = `Gemini explanations are unavailable because ${keyIssue} Common causes include a missing or expired key, an invalid Google AI Studio project, the model not being enabled for your account, or quota/rate-limit issues. The app is still showing your deterministic matching scores, but AI-generated reasons are disabled until the key and model access are fixed. Please update the server .env file and restart the app after correcting the key.`;
+      }
     }
     res.json({ matches, warning, source: 'deterministic', sampleJobs: true,
       message: matches.length ? '' : 'No jobs match your confirmed qualifications and preferences. Update your profile or broaden your preferences.' });
