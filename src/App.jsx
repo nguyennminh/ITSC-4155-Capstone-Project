@@ -1,5 +1,7 @@
 import React, { useEffect, useState } from "react";
 
+import JobDetails from './pages/JobDetails.jsx';
+import { getApplications, startApplication, changeApplicationStatus } from './services/applicationService.js';
 import Navigation from "./components/Navigation.jsx";
 import Login from "./pages/Login.jsx";
 import ResumeWorkflow from "./pages/ResumeWorkflow.jsx";
@@ -33,13 +35,17 @@ export default function App() {
   const [saved, setSaved] = useState([]);
   const [applications, setApplications] = useState([]);
 
+  const [recommendations, setRecommendations] = useState([]);
+  const [matchSource, setMatchSource] = useState('deterministic');
+  const [detail, setDetail] = useState(null);
+  function receiveMatches(result) { setJobs(result.jobs); setRecommendations(result.matches); setMatchSource(result.source); }
+  function openDetails(job, recommendation) { setDetail({job, recommendation}); }
   // Feedback
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
   useEffect(() => {
-    loadJobs();
     restoreSession();
   }, []);
 
@@ -68,6 +74,9 @@ export default function App() {
   }
 
   function enter(user) {
+    loadJobs();
+    getApplications().then(result => setApplications(result.applications)).catch(err => setMessage(err.message));
+    setDetail(null); setRecommendations([]);
     setProfile(user.profile);
     setProfileConfirmed(user.confirmed);
     setRole(user.role);
@@ -109,34 +118,14 @@ export default function App() {
     );
   }
 
-  function apply(job) {
-    setApplications((current) => {
-      const alreadyTracked = current.some(
-        (application) => application.id === job.id
-      );
-
-      if (alreadyTracked) {
-        return current;
-      }
-
-      return [...current, { ...job, status: "Started" }];
-    });
-
-    navigate("applications");
-
-    setMessage(
-      "Demo: this job is in your tracker. No application was submitted."
-    );
+  async function apply(job) {
+    const result = await startApplication(job.id);
+    setApplications(result.applications);
+    return result;
   }
-
-  function updateApplicationStatus(id, status) {
-    setApplications((current) =>
-      current.map((application) =>
-        application.id === id
-          ? { ...application, status }
-          : application
-      )
-    );
+  async function updateApplicationStatus(id, status) {
+    try { const result = await changeApplicationStatus(id, status); setApplications(result.applications); }
+    catch(err) { setMessage(err.message); }
   }
 
   async function logout() {
@@ -148,6 +137,7 @@ export default function App() {
     setSaved([]);
     setApplications([]);
     setMessage("");
+    setDetail(null); setRecommendations([]); setJobs([]);
     setRole("Job seeker");
     setPage("login");
   }
@@ -169,9 +159,10 @@ export default function App() {
         logout={logout}
       />
 
-      <div className="container">
-        <p className="demo-label">
-          Sample job listings · resume profiles are saved · job tracking remains a session-only demo
+      {detail && <JobDetails {...detail} source={matchSource} onClose={() => setDetail(null)} onStart={apply}/>}
+      <div className="container" inert={detail ? true : undefined}>
+        <p className="demo-label"><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> ·
+          Confirmed profiles and application tracking are saved
         </p>
 
         {message && (
@@ -222,6 +213,10 @@ export default function App() {
             saved={saved}
             onSave={saveJob}
             onApply={apply}
+            onDetails={openDetails}
+            source={matchSource}
+            recommendations={recommendations}
+            onResults={receiveMatches}
           />
         )}
 
@@ -232,6 +227,10 @@ export default function App() {
             saved={saved}
             onRemove={removeSavedJob}
             onApply={apply}
+            onDetails={openDetails}
+            source={matchSource}
+            recommendations={recommendations}
+            onResults={receiveMatches}
           />
         )}
 
