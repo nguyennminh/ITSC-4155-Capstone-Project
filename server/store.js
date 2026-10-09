@@ -8,6 +8,11 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
   const db = new DatabaseSync(filename);
   db.exec(`PRAGMA foreign_keys = ON;
     PRAGMA journal_mode = WAL;
+    CREATE TABLE IF NOT EXISTS applications (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      job_id TEXT NOT NULL, job_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Started',
+      started_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(user_id, job_id)
+    );
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
       role TEXT NOT NULL, profile_json TEXT NOT NULL, confirmed INTEGER NOT NULL DEFAULT 0
@@ -22,6 +27,19 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
     );`);
   return {
     close: () => db.close(),
+    applications(id) {
+      return db.prepare('SELECT * FROM applications WHERE user_id=? ORDER BY started_at DESC').all(id)
+        .map(row => ({ ...JSON.parse(row.job_json), id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at }));
+    },
+    startApplication(id, job) {
+      const date = new Date().toISOString();
+      db.prepare('INSERT INTO applications VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,job_id) DO NOTHING')
+        .run(id, String(job.id), JSON.stringify(job), 'Started', date, date);
+    },
+    updateApplication(id, jobId, status) {
+      return db.prepare('UPDATE applications SET status=?,updated_at=? WHERE user_id=? AND job_id=?')
+        .run(status, new Date().toISOString(), id, jobId).changes;
+    },
     findUser: email => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
     createUser(email, passwordHash, name, role) {
       const profile = { ...emptyProfile, name, email };
