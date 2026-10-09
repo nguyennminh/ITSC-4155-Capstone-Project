@@ -1,0 +1,27 @@
+import { test, expect } from '@playwright/test';
+test('details preserve swipe progress; applications persist; AI changes order', async ({page}) => {
+  const email=`jobs-${Date.now()}@example.org`;
+  await page.goto('/');await page.getByRole('button',{name:'Create an account'}).click();
+  await page.getByLabel('Name',{exact:true}).fill('Alex');await page.getByLabel('Email',{exact:true}).fill(email);
+  await page.getByLabel('Password',{exact:true}).fill('long-test-password');await page.getByRole('button',{name:'Create account',exact:true}).click();
+  await page.getByLabel('Select your resume').setInputFiles('test/fixtures/resume.docx');
+  await page.getByRole('button',{name:'Parse resume',exact:true}).click();
+  await page.getByLabel('Skills (comma-separated)').fill('React, JavaScript, SQL, Python, Git, CSS');
+  await page.getByLabel('I reviewed these fields').check();await page.getByRole('button',{name:'Confirm information'}).click();
+  await expect(page.getByRole('button',{name:'View details'})).toBeVisible();
+  await page.getByRole('button',{name:'Skip',exact:true}).click();
+  const title=await page.locator('.job-card h2').innerText();
+  await page.getByRole('button',{name:'View details'}).click();await expect(page.getByRole('dialog')).toBeVisible();
+  await expect(page.getByRole('dialog').getByRole('heading',{name:title,exact:true})).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('dialog')).toHaveCount(0);
+  await expect(page.getByRole('button',{name:'View details'})).toBeFocused();
+  await expect(page.locator('.job-card h2')).toHaveText(title);
+  await page.getByRole('button',{name:'Apply',exact:true}).click();await expect(page.getByText('You will complete the application on an external website.',{exact:false})).toBeVisible();
+  await page.getByRole('button',{name:'Start application'}).click();await expect(page.getByRole('link',{name:'Continue to application'})).toHaveAttribute('href',/https:\/\/example.org\/jobs\//);
+  await page.getByRole('button',{name:'Applications',exact:true}).click();await expect(page.getByLabel('Status')).toHaveValue('Started');
+  await page.getByLabel('Status').selectOption('Applied');await page.reload();
+  await page.getByRole('button',{name:'Applications',exact:true}).click();await expect(page.getByLabel('Status')).toHaveValue('Applied');
+  await page.getByRole('button',{name:'Discover',exact:true}).click();await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Refresh matches'}).click();
+  await expect(page.locator('.job-card h2')).toHaveText('Frontend Developer');await expect(page.getByText('99/100 · AI fit estimate')).toBeVisible();
+});
