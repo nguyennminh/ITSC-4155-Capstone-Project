@@ -13,7 +13,10 @@ test('filters location, arrangement and type', () => {
   assert.equal(filterJobs(jobs, '', 'On-site', 'Internship').length, 0);
 });
 test('returns independent job objects', async () => {
-  const result = await getJobs();
+  const original = globalThis.fetch;
+  globalThis.fetch = async () => ({ ok: true, json: async () => ({ jobs: structuredClone(jobs) }) });
+  let result;
+  try { result = await getJobs(); } finally { globalThis.fetch = original; }
   result[0].title = 'Changed';
   assert.notEqual(jobs[0].title, 'Changed');
 });
