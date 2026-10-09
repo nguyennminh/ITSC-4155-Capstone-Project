@@ -1,8 +1,9 @@
 import React, { useEffect, useRef, useState } from 'react';
+import ApplyButton from '../components/ApplyButton.jsx';
 import JobCard from '../components/JobCard.jsx';
 import { getMatches } from '../services/resumeService.js';
 
-export default function Discover({ jobs, profile, confirmed, saved, onSave, onApply, onReview }) {
+export default function Discover({ jobs, profile, confirmed, saved, onSave, onApply, onReview, onDetails, onResults, source }) {
   const [skipped, setSkipped] = useState([]);
   const [startX, setStartX] = useState(null);
   const [matches, setMatches] = useState(null);
@@ -22,7 +23,7 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
     try {
       const result = await getMatches(useAi, request.signal);
       if (!request.signal.aborted) {
-        setMatches(result.matches); setSkipped([]);
+        setMatches(result.matches); onResults(result); setSkipped([]);
         setNotice(result.warning || result.message || '');
       }
     } catch (err) { if (!request.signal.aborted) setError(err.message); }
@@ -35,16 +36,16 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
   function saveAndSkip() { if (job) { onSave(job.id); skip(); } }
   return <section>
     <h1>Discover jobs</h1>
-    <p>Swipe left to skip, right to save. Available listings are currently sample jobs.</p>
+    <p>Swipe left to skip, right to save. Listings supplied by Adzuna.</p>
     <div className="card">
       <h2>Match your confirmed qualifications</h2>
       <p>Scores use a consistent keyword formula: up to 90 points for required skills evidenced in your qualifications, plus 5 each for preferred title and location. Work arrangement and employment type filter jobs.</p>
       {!confirmed && <p className="notice">Confirm your information first. <button onClick={onReview}>Review information</button></p>}
       <label className="checkbox-label"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/>
-        Add optional Gemini explanations by sending my qualification fields and preferences to Google. Name/email fields are excluded; remove personal details from free text. Free-tier content may be used for product improvement.
+        Use Gemini to rank jobs by sending my qualification fields and preferences to Google. Name/email fields are excluded; remove personal details from free text. Free-tier content may be used for product improvement.
       </label>
       <button className="primary" disabled={!confirmed || loading} onClick={() => runMatching(consent)}>{loading ? 'Matching…' : 'Refresh matches'}</button>
-      <p className="muted">Gemini does not determine scores or ranking. A match score is not a hiring probability.</p>
+      <p className="muted">With AI disabled or unavailable, scores use keyword matching. Scores are not hiring probabilities.</p>
       {loading && <p role="status">Comparing your saved profile with jobs…</p>}
       {error && <p className="profile-error" role="alert">{error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}
@@ -61,10 +62,10 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
       if (distance > 70) saveAndSkip();
       setStartX(null);
     }}>
-      <JobCard job={job} skills={profile.skills} recommendation={current}>
+      <JobCard job={job} skills={profile.skills} recommendation={current} source={source} onDetails={onDetails}>
         <button onClick={skip}>Skip</button>
         <button disabled={saved.includes(job.id)} onClick={saveAndSkip}>{saved.includes(job.id) ? 'Saved' : 'Save job'}</button>
-        <button className="primary" onClick={() => onApply(job)}>Application options</button>
+        <ApplyButton job={job} onStart={onApply}/>
       </JobCard>
     </div>}
   </section>;
