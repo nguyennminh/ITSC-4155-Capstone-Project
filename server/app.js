@@ -2,8 +2,7 @@ import express from 'express';
 import multer from 'multer';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
-import { createJobProvider } from './services/jobProvider.js';
-import { safeExternalUrl } from '../src/services/linkService.js';
+import { jobs } from '../src/data/mockData.js';
 import { extractText } from './services/extractText.js';
 import { parseResumeFields } from './services/resumeFields.js';
 import { ApiError, matchJobs } from './services/aiMatcher.js';
@@ -22,7 +21,7 @@ const profileSchema = z.object({
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
 });
-export function createApp({ store = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider() } = {}) {
+export function createApp({ store = openStore(), extract = extractText, explain = matchJobs } = {}) {
   const app = express();
   app.locals.store = store;
   app.disable('x-powered-by');
@@ -67,24 +66,6 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     if (!req.user) return res.status(401).json({ error: 'Sign in to access your resume and profile.' });
     next();
   });
-  app.get('/api/jobs', async (req, res) => res.json({ jobs: await jobProvider.getJobs() }));
-  app.get('/api/applications', (req, res) => res.json({ applications: store.applications(req.user.id) }));
-  app.post('/api/applications/start', async (req, res) => {
-    const parsed = z.object({ jobId: z.string().min(1).max(200) }).safeParse(req.body);
-    if (!parsed.success) throw new ApiError(400, 'Choose a valid job.');
-    const job = (await jobProvider.getJobs()).find(job => String(job.id) === parsed.data.jobId);
-    if (!job) throw new ApiError(404, 'This job is no longer in the available listings.');
-    const url = safeExternalUrl(job.applyUrl || job.postingUrl);
-    if (!url) throw new ApiError(422, 'This job has no valid application link.');
-    store.startApplication(req.user.id, job);
-    res.json({ applications: store.applications(req.user.id), url });
-  });
-  app.patch('/api/applications/:jobId', (req, res) => {
-    const parsed = z.object({ status: z.enum(['Started','Applied','Interviewing','Offered','Rejected','Withdrawn']) }).safeParse(req.body);
-    if (!parsed.success) throw new ApiError(400, 'Choose a valid application status.');
-    if (!store.updateApplication(req.user.id, req.params.jobId, parsed.data.status)) throw new ApiError(404, 'Application not found.');
-    res.json({ applications: store.applications(req.user.id) });
-  });
   app.get('/api/profile', (req, res) => res.json({ user: publicUser(req.user) }));
   app.post('/api/profile/confirm', (req, res) => {
     const parsed = z.object({ confirmed: z.literal(true), profile: profileSchema }).safeParse(req.body);
@@ -110,32 +91,23 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     const request = z.object({ useAi: z.boolean().default(false) }).safeParse(req.body || {});
     if (!request.success) throw new ApiError(400, 'Invalid matching request.');
     const profile = JSON.parse(req.user.profile_json);
-    const jobs = await jobProvider.getJobs();
     let matches = rankJobs(profile, jobs);
-    let source = 'deterministic';
     let warning = '';
-    if (request.data.useAi && jobs.length) {
+    if (request.data.useAi && matches.length) {
       try {
         const { skills, experience, education, certifications, title, location, mode, type } = profile;
-        // Evaluate the whole bounded batch, including jobs with no exact keyword overlap.
-        const eligible = jobs.filter(job => (profile.mode === 'Any' || !profile.mode || job.mode === profile.mode)
-          && (profile.type === 'Any' || !profile.type || job.type === profile.type));
-        const results = await explain({ skills, experience, education, certifications, title, location, mode, type }, eligible);
-        const evidence = rankJobs(profile, eligible);
-        matches = results.filter(item => item.score > 0).map(item => ({ ...item,
-          matched: evidence.find(row => row.jobId === item.jobId)?.matched || [],
-          missing: evidence.find(row => row.jobId === item.jobId)?.missing || eligible.find(job => job.id === item.jobId)?.skills || [],
-          aiReasons: item.reasons,
-          reasons: evidence.find(row => row.jobId === item.jobId)?.reasons || ['No exact skill overlap was detected; review the AI assessment against the posting.']
-        }));
-        source = 'gemini';
+        const eligible = jobs.filter(job => matches.some(match => match.jobId === job.id));
+        const explanations = await explain({ skills, experience, education, certifications, title, location, mode, type }, eligible);
+        matches = matches.map(match => ({ ...match, aiReasons: explanations.find(item => item.jobId === match.jobId)?.reasons || [] }));
       } catch (error) {
-        console.warn('[AI matching]', error instanceof ApiError ? error.message : 'Unexpected response processing error');
-        warning = 'AI matching is unavailable. Keyword fallback results are shown.';
+        const keyIssue = !process.env.GEMINI_API_KEY ? 'The server is missing a valid GEMINI_API_KEY in its .env file.'
+          : 'The configured Gemini key or model access is not valid for this app.';
+        const detail = error?.message || 'The request was rejected by Gemini.';
+        console.warn('[AI explanations] Gemini request failed:', detail);
+        warning = `Gemini explanations are unavailable because ${keyIssue} Common causes include a missing or expired key, an invalid Google AI Studio project, the model not being enabled for your account, or quota/rate-limit issues. The app is still showing your deterministic matching scores, but AI-generated reasons are disabled until the key and model access are fixed. Please update the server .env file and restart the app after correcting the key.`;
       }
     }
-
-    res.json({ jobs, matches, warning, source, sampleJobs: false,
+    res.json({ matches, warning, source: 'deterministic', sampleJobs: true,
       message: matches.length ? '' : 'No jobs match your confirmed qualifications and preferences. Update your profile or broaden your preferences.' });
   });
   app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
