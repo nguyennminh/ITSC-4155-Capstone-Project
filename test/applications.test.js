@@ -85,3 +85,27 @@ test('database failures return an explicit retryable error', async t => {
   assert.equal(response.status, 503);
   assert.match((await response.json()).error, /could not be saved or retrieved/i);
 });
+
+test('#account deletion requires confirmation, is owner-scoped, and cascades data', async t => {
+  const store = openStore(':memory:');
+  const server = createApp({ store, jobProvider: { getJobs: async () => jobs } }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); store.close(); });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  function client(){let cookie='';return async(path,body,method=body?'POST':'GET')=>{
+    const res=await fetch(base+path,{method,headers:{Cookie:cookie,'Content-Type':'application/json'},body:body?JSON.stringify(body):undefined});
+    if(res.headers.get('set-cookie'))cookie=res.headers.get('set-cookie').split(';')[0];return {status:res.status,data:await res.json()};
+  };}
+  const alice = client(), bob = client();
+  await alice('/api/auth/register', { name: 'Alice', email: 'delete-a@example.org', password: 'long-password-123' });
+  await bob('/api/auth/register', { name: 'Bob', email: 'delete-b@example.org', password: 'long-password-123' });
+  assert.equal((await alice('/api/auth/account', { confirmation: 'no' }, 'DELETE')).status, 400);
+  await alice('/api/saved-jobs', { jobId: jobs[0].id });
+  assert.equal((await bob('/api/saved-jobs')).data.savedJobs.length, 0);
+  assert.equal((await alice('/api/auth/account', { confirmation: 'DELETE' }, 'DELETE')).status, 200);
+  assert.equal((await alice('/api/profile')).status, 401);
+  assert.equal((await bob('/api/auth/me')).data.user.email, 'delete-b@example.org');
+  const deletedUser = store.findUser('delete-a@example.org');
+  assert.equal(deletedUser, undefined);
+  assert.equal(store.savedJobs(1).length, 0);
+});

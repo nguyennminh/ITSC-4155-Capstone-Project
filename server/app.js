@@ -75,6 +75,15 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     res.json({ user: publicUser(user) });
   });
   app.post('/api/auth/logout', async (req, res) => { await clearSession(req, res, store); res.json({ ok: true }); });
+  app.delete('/api/auth/account', async (req, res) => {
+    const user = await store.sessionUser(sessionHash(req));
+    if (!user) return res.status(401).json({ error: 'Sign in to delete your account.' });
+    const parsed = z.object({ confirmation: z.literal('DELETE') }).safeParse(req.body);
+    if (!parsed.success) throw new ApiError(400, 'Type DELETE to confirm permanent account deletion.');
+    await store.deleteAccount(user.id);
+    await clearSession(req, res, store);
+    res.json({ ok: true });
+  });
   app.get('/api/auth/me', async (req, res) => {
     const user = await store.sessionUser(sessionHash(req));
     res.json({ user: user ? publicUser(user) : null });

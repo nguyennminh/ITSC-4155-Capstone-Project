@@ -23,6 +23,9 @@ export async function api(path, options = {}) {
 export function jsonPost(path, body) {
   return api(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
 }
+export function deleteAccount() {
+  return api('/api/auth/account', { method: 'DELETE', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ confirmation: 'DELETE' }) });
+}
 export async function parseResume(file, signal) {
   const form = new FormData();
   form.append('resume', file);
