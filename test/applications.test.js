@@ -40,6 +40,46 @@ test('#12/#16/#55 authenticated application tracking and Gemini ranking/failure 
   assert.equal((await b('/api/applications/'+jobs[0].id,{status:'Applied'},'PATCH')).status,404);
   assert.equal((await a('/api/applications/'+jobs[0].id,{status:'Fake'},'PATCH')).status,400);
   await a('/api/applications/'+jobs[0].id,{status:'Applied'},'PATCH');assert.equal((await a('/api/applications')).data.applications[0].status,'Applied');
+
+  // Test deleting an application
+  const jobId = jobs[0].id;
+
+  // Sam cannot delete Alex's application
+  const otherUserDelete = await b(
+    '/api/applications/' + jobId,
+    undefined,
+    'DELETE'
+  );
+  assert.equal(otherUserDelete.status, 404);
+
+  // Alex's application should still exist
+  assert.equal(
+    (await a('/api/applications')).data.applications.length,
+    1
+  );
+
+  // Alex can delete their own application
+  const deleted = await a(
+    '/api/applications/' + jobId,
+    undefined,
+    'DELETE'
+  );
+  assert.equal(deleted.status, 200);
+
+  // Alex's application list should now be empty
+  assert.equal(
+    (await a('/api/applications')).data.applications.length,
+    0
+  );
+
+  // Deleting the same application again returns 404
+  const deleteAgain = await a(
+    '/api/applications/' + jobId,
+    undefined,
+    'DELETE'
+  );
+  assert.equal(deleteAgain.status, 404);
+
   const saved=await a('/api/saved-jobs',{jobId:jobs[0].id});
   assert.equal(saved.data.savedJobs.length,1);assert.equal((await b('/api/saved-jobs')).data.savedJobs.length,0);
   await a('/api/auth/logout',{});

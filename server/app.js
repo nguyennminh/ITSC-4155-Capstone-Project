@@ -108,6 +108,23 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     if (!await store.updateApplication(req.user.id, req.params.jobId, parsed.data.status)) throw new ApiError(404, 'Application not found.');
     res.json({ applications: await store.applications(req.user.id) });
   });
+
+  app.delete('/api/applications/:jobId', async (req, res) => {
+    const deleted = await store.deleteApplication(
+      req.user.id,
+      req.params.jobId
+    );
+
+    if (!deleted) {
+      throw new ApiError(404, 'Application not found.');
+    }
+
+    res.json({
+      applications: await store.applications(req.user.id)
+    });
+  });
+
+
   app.get('/api/profile', (req, res) => res.json({ user: publicUser(req.user) }));
   app.post('/api/profile/confirm', async (req, res) => {
     const parsed = z.object({ confirmed: z.literal(true), profile: profileSchema }).safeParse(req.body);

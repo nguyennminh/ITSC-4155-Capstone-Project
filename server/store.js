@@ -64,6 +64,12 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
       return db.prepare('UPDATE applications SET status=?,updated_at=? WHERE user_id=? AND job_id=?')
         .run(status, new Date().toISOString(), id, jobId).changes;
     },
+
+    deleteApplication(id, jobId) {
+      return db.prepare('DELETE FROM applications WHERE user_id=? AND job_id=?')
+        .run(id, jobId).changes;
+    },
+
     findUser: email => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
     createUser(email, passwordHash, name, role) {
       const profile = { ...emptyProfile, name, email };
@@ -179,6 +185,18 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
         { $set: { status, updated_at: new Date().toISOString() } },
       )).matchedCount;
     },
+
+
+    async deleteApplication(id, jobId) {
+      const result = await applications.deleteOne({
+        user_id: id,
+        job_id: jobId
+      });
+
+    return result.deletedCount;
+    },
+
+
     findUser: async email => mapUser(await users.findOne({ email })),
     async createUser(email, passwordHash, name, role) {
       const profile = { ...emptyProfile, name, email };
