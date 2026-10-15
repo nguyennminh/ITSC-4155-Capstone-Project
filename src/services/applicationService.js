@@ -4,3 +4,8 @@ export const startApplication = jobId => jsonPost('/api/applications/start', { j
 export const changeApplicationStatus = (jobId, status) => api(`/api/applications/${encodeURIComponent(jobId)}`, {
   method: 'PATCH', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ status })
 });
+export const deleteApplication = jobId =>
+  api(`/api/applications/${encodeURIComponent(jobId)}`, {
+    method: 'DELETE'
+  });
+

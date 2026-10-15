@@ -1,7 +1,14 @@
 import React, { useEffect, useRef, useState } from "react";
 
 import JobDetails from './pages/JobDetails.jsx';
-import { getApplications, startApplication, changeApplicationStatus } from './services/applicationService.js';
+
+import {
+  getApplications,
+  startApplication,
+  changeApplicationStatus,
+  deleteApplication as deleteApplicationRequest
+} from './services/applicationService.js';
+
 import Navigation from "./components/Navigation.jsx";
 import Login from "./pages/Login.jsx";
 import ResumeWorkflow from "./pages/ResumeWorkflow.jsx";
@@ -178,6 +185,14 @@ export default function App() {
     catch(err) { setMessage(err.message); }
   }
 
+
+  async function handleDeleteApplication(jobId) {
+    const result = await deleteApplicationRequest(jobId);
+    setApplications(result.applications);
+    setMessage("Application deleted successfully.");
+  }
+
+
   async function logout() {
     if (logoutBusy) return;
     setLogoutBusy(true);
@@ -298,12 +313,15 @@ export default function App() {
           />
         )}
 
+
         {page === "applications" && (
           <Applications
             applications={applications}
             updateStatus={updateApplicationStatus}
+            deleteApplication={handleDeleteApplication}
           />
         )}
+
 
         {page === "recruiter" && <Recruiter />}
       </div>
