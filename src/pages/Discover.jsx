@@ -29,7 +29,7 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
   const job = jobs.find(job => job.id === current?.jobId);
   const resumeSkills = String(profile.skills || '').split(/[,;\n|]+/).map(skill => skill.trim()).filter(Boolean);
   function skip() { if (job) setSkipped(ids => [...ids, job.id]); }
-  function saveAndSkip() { if (job) { onSave(job.id); skip(); } }
+  function saveAndSkip() { if (job) { onSave(job); skip(); } }
   return <section>
     <h1>Discover jobs</h1>
     <p>Swipe left to skip, right to save. Listings supplied by Adzuna.</p>

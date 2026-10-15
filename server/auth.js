@@ -19,15 +19,15 @@ export function sessionHash(req) {
     .find(part => part.startsWith('jobswipe_session='))?.slice('jobswipe_session='.length);
   return token ? hash(token) : '';
 }
-export function issueSession(req, res, store, userId) {
-  store.deleteSession(sessionHash(req));
+export async function issueSession(req, res, store, userId) {
+  await store.deleteSession(sessionHash(req));
   const token = randomBytes(32).toString('hex');
-  store.addSession(hash(token), userId, Date.now() + lifetime);
+  await store.addSession(hash(token), userId, Date.now() + lifetime);
   res.cookie('jobswipe_session', token, { httpOnly: true, sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production', path: '/', maxAge: lifetime });
 }
-export function clearSession(req, res, store) {
-  store.deleteSession(sessionHash(req));
+export async function clearSession(req, res, store) {
+  await store.deleteSession(sessionHash(req));
   res.clearCookie('jobswipe_session', { httpOnly: true, sameSite: 'strict',
     secure: process.env.NODE_ENV === 'production', path: '/' });
 }
