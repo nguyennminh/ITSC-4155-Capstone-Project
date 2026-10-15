@@ -42,8 +42,8 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     const { name, email, password, role } = parsed.data;
     if (store.findUser(email)) throw new ApiError(409, 'An account with that email already exists.');
     const passwordHash = await hashPassword(password);
-    if (store.findUser(email)) throw new ApiError(409, 'An account with that email already exists.');
     const id = store.createUser(email, passwordHash, name, role);
+    if (id === null) throw new ApiError(409, 'An account with that email already exists.');
     issueSession(req, res, store, id);
     res.status(201).json({ user: publicUser(store.user(id)) });
   });
