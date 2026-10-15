@@ -14,6 +14,7 @@ import Profile from "./pages/Profile.jsx";
 import { emptyProfile } from "./data/mockData.js";
 import { getJobs } from "./services/jobService.js";
 import { api, jsonPost, onSessionExpired } from "./services/resumeService.js";
+import { getSavedJobs, removeSavedJob as deleteSavedJob, saveJob as persistSavedJob } from "./services/savedJobService.js";
 
 const initialProfile = {
   ...emptyProfile,
@@ -35,6 +36,9 @@ export default function App() {
   // Jobs and application tracking
   const [jobs, setJobs] = useState([]);
   const [saved, setSaved] = useState([]);
+  const [savedListings, setSavedListings] = useState([]);
+  const [savedLoading, setSavedLoading] = useState(false);
+  const [savedError, setSavedError] = useState("");
   const [applications, setApplications] = useState([]);
 
   const [recommendations, setRecommendations] = useState([]);
@@ -86,18 +90,34 @@ export default function App() {
 
   function enter(user) {
     getApplications().then(result => setApplications(result.applications)).catch(err => setMessage(err.message));
+    loadSavedJobs();
     setDetail(null); setRecommendations([]);
     setProfile(user.profile);
     setProfileConfirmed(user.confirmed);
     setRole(user.role);
     setResume(null);
     setSaved([]);
+    setSavedListings([]);
     setApplications([]);
     setMessage("");
     setLoginNotice("");
     if (user.confirmed && user.profile.skills.trim()) loadJobs();
     else { setJobs([]); setLoading(false); setError(""); }
     setPage(user.role === "Recruiter" ? "recruiter" : user.confirmed ? "discover" : "onboarding");
+  }
+
+  async function loadSavedJobs() {
+    setSavedLoading(true);
+    setSavedError("");
+    try {
+      const result = await getSavedJobs();
+      setSavedListings(result.savedJobs);
+      setSaved(result.savedJobs.map(job => job.id));
+    } catch (err) {
+      setSavedError(err.message);
+    } finally {
+      setSavedLoading(false);
+    }
   }
 
   function navigate(nextPage) {
@@ -121,18 +141,25 @@ export default function App() {
     navigate(page === "onboarding" ? "discover" : "profile");
   }
 
-  function saveJob(id) {
-    setSaved((current) =>
-      current.includes(id) ? current : [...current, id]
-    );
-
-    setMessage("Job saved.");
+  async function saveJob(job) {
+    try {
+      const result = await persistSavedJob(job.id);
+      setSavedListings(result.savedJobs);
+      setSaved(result.savedJobs.map(savedJob => savedJob.id));
+      setMessage("Job saved.");
+    } catch (err) {
+      setMessage(err.message);
+    }
   }
 
-  function removeSavedJob(id) {
-    setSaved((current) =>
-      current.filter((savedId) => savedId !== id)
-    );
+  async function removeSavedJob(id) {
+    try {
+      const result = await deleteSavedJob(id);
+      setSavedListings(result.savedJobs);
+      setSaved(result.savedJobs.map(job => job.id));
+    } catch (err) {
+      setMessage(err.message);
+    }
   }
 
   async function apply(job) {
@@ -159,6 +186,7 @@ export default function App() {
     setResume(null);
     setProfileConfirmed(false);
     setSaved([]);
+    setSavedListings([]);
     setApplications([]);
     setMessage("");
     setDetail(null); setRecommendations([]); setJobs([]);
@@ -174,7 +202,7 @@ export default function App() {
     return <Login onEnter={enter} notice={loginNotice} />;
   }
 
-  const isJobPage = page === "discover" || page === "saved";
+  const isJobPage = page === "discover";
 
   return (
     <>
@@ -189,7 +217,7 @@ export default function App() {
       {detail && <JobDetails {...detail} onClose={closeDetails} onStart={apply}/>}
       <div className="container" inert={detail ? true : undefined}>
         <p className="demo-label"><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> ·
-          Confirmed profiles and application tracking are saved
+          Confirmed profiles, saved jobs, and application tracking are saved
         </p>
 
         {message && (
@@ -246,11 +274,14 @@ export default function App() {
           />
         )}
 
-        {!loading && !error && page === "saved" && (
+        {page === "saved" && (
           <SavedJobs
-            jobs={jobs}
+            jobs={savedListings}
             profile={profile}
             saved={saved}
+            loading={savedLoading}
+            error={savedError}
+            onRetry={loadSavedJobs}
             onRemove={removeSavedJob}
             onApply={apply}
             onDetails={openDetails}

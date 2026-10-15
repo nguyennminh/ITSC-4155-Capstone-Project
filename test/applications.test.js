@@ -40,12 +40,48 @@ test('#12/#16/#55 authenticated application tracking and Gemini ranking/failure 
   assert.equal((await b('/api/applications/'+jobs[0].id,{status:'Applied'},'PATCH')).status,404);
   assert.equal((await a('/api/applications/'+jobs[0].id,{status:'Fake'},'PATCH')).status,400);
   await a('/api/applications/'+jobs[0].id,{status:'Applied'},'PATCH');assert.equal((await a('/api/applications')).data.applications[0].status,'Applied');
+  const saved=await a('/api/saved-jobs',{jobId:jobs[0].id});
+  assert.equal(saved.data.savedJobs.length,1);assert.equal((await b('/api/saved-jobs')).data.savedJobs.length,0);
+  await a('/api/auth/logout',{});
+  assert.equal((await a('/api/auth/login',{email:'a@example.org',password:'long-password-123'})).status,200);
+  assert.equal((await a('/api/saved-jobs')).data.savedJobs.length,1);
+  await b('/api/saved-jobs/'+jobs[0].id,undefined,'DELETE');
+  assert.equal((await a('/api/saved-jobs')).data.savedJobs.length,1);
+  await a('/api/saved-jobs/'+jobs[0].id,undefined,'DELETE');
+  assert.equal((await a('/api/saved-jobs')).data.savedJobs.length,0);
 });
 
 test('#12 applications survive database restart', async t => {
   const {mkdtemp,rm}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
   const folder=await mkdtemp(join(tmpdir(),'jobswipe-apps-'));t.after(()=>rm(folder,{recursive:true,force:true}));
   const filename=join(folder,'db.sqlite');let store=openStore(filename);
-  const id=store.createUser('persist@example.org','test-hash','Alex','Job seeker');store.startApplication(id,jobs[0]);store.updateApplication(id,jobs[0].id,'Applied');store.close();
-  store=openStore(filename);assert.equal(store.applications(id)[0].status,'Applied');store.close();
+  const id=store.createUser('persist@example.org','test-hash','Alex','Job seeker');store.startApplication(id,jobs[0]);store.updateApplication(id,jobs[0].id,'Applied');store.saveJob(id,jobs[0]);store.close();
+  store=openStore(filename);assert.equal(store.applications(id)[0].status,'Applied');assert.equal(store.savedJobs(id).length,1);store.close();
+});
+
+test('database failures return an explicit retryable error', async t => {
+  const store = openStore(':memory:');
+  const failingStore = new Proxy(store, {
+    get(target, property, receiver) {
+      if (property === 'savedJobs') return () => { throw new Error('database unavailable'); };
+      return Reflect.get(target, property, receiver);
+    },
+  });
+  const server = createApp({ store: failingStore }).listen(0, '127.0.0.1');
+  await once(server, 'listening');
+  t.after(async () => {
+    server.closeAllConnections();
+    await new Promise(resolve => server.close(resolve));
+    store.close();
+  });
+  const base = `http://127.0.0.1:${server.address().port}`;
+  let cookie = '';
+  const registration = await fetch(`${base}/api/auth/register`, {
+    method: 'POST', headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: 'Alex', email: 'error@example.org', password: 'long-password-123' }),
+  });
+  cookie = registration.headers.get('set-cookie').split(';')[0];
+  const response = await fetch(`${base}/api/saved-jobs`, { headers: { Cookie: cookie } });
+  assert.equal(response.status, 503);
+  assert.match((await response.json()).error, /could not be saved or retrieved/i);
 });

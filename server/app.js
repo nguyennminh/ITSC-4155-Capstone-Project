@@ -21,13 +21,29 @@ const profileSchema = z.object({
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
 });
-export function createApp({ store = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider() } = {}) {
+export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider() } = {}) {
+  const store = new Proxy(providedStore, {
+    get(target, property, receiver) {
+      const method = Reflect.get(target, property, receiver);
+      if (typeof method !== 'function') return method;
+      return async (...args) => {
+        try { return await method.apply(target, args); }
+        catch (error) {
+          console.error(`[Database] ${String(property)} failed.`, error);
+          throw new ApiError(503, 'Your data could not be saved or retrieved. Please retry.');
+        }
+      };
+    },
+  });
   const app = express();
   app.locals.store = store;
   app.disable('x-powered-by');
+  app.set('trust proxy', 1);
   app.use('/api', (req, res, next) => {
     res.set('Cache-Control', 'no-store');
-    const allowed = new Set((process.env.APP_ORIGINS || 'http://localhost:5173,http://127.0.0.1:5173').split(','));
+    const allowed = process.env.APP_ORIGINS
+      ? new Set(process.env.APP_ORIGINS.split(',').map(origin => origin.trim()))
+      : new Set(['http://localhost:5173', 'http://127.0.0.1:5173', `${req.protocol}://${req.get('host')}`]);
     if (req.headers.origin && !allowed.has(req.headers.origin)) return res.status(403).json({ error: 'Origin not allowed.' });
     next();
   });
@@ -41,29 +57,29 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Enter a name, valid email, and a password of 10–128 characters.');
     const { name, email, password, role } = parsed.data;
-    if (store.findUser(email)) throw new ApiError(409, 'An account with that email already exists.');
+    if (await store.findUser(email)) throw new ApiError(409, 'An account with that email already exists.');
     const passwordHash = await hashPassword(password);
-    const id = store.createUser(email, passwordHash, name, role);
+    const id = await store.createUser(email, passwordHash, name, role);
     if (id === null) throw new ApiError(409, 'An account with that email already exists.');
-    issueSession(req, res, store, id);
-    res.status(201).json({ user: publicUser(store.user(id)) });
+    await issueSession(req, res, store, id);
+    res.status(201).json({ user: publicUser(await store.user(id)) });
   });
   app.post('/api/auth/login', async (req, res) => {
     const parsed = loginSchema.safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Enter a valid email and password.');
-    const user = store.findUser(parsed.data.email);
+    const user = await store.findUser(parsed.data.email);
     if (!user || !await verifyPassword(parsed.data.password, user.password_hash)) throw new ApiError(401, 'Incorrect email or password.');
-    issueSession(req, res, store, user.id);
+    await issueSession(req, res, store, user.id);
     res.json({ user: publicUser(user) });
   });
-  app.post('/api/auth/logout', (req, res) => { clearSession(req, res, store); res.json({ ok: true }); });
-  app.get('/api/auth/me', (req, res) => {
-    const user = store.sessionUser(sessionHash(req));
+  app.post('/api/auth/logout', async (req, res) => { await clearSession(req, res, store); res.json({ ok: true }); });
+  app.get('/api/auth/me', async (req, res) => {
+    const user = await store.sessionUser(sessionHash(req));
     res.json({ user: user ? publicUser(user) : null });
   });
   // All resume/profile/matching routes derive ownership from the session, not request user IDs.
-  app.use('/api', (req, res, next) => {
-    req.user = store.sessionUser(sessionHash(req));
+  app.use('/api', async (req, res, next) => {
+    req.user = await store.sessionUser(sessionHash(req));
     if (!req.user) return res.status(401).json({ error: 'Sign in to access your resume and profile.' });
     next();
   });
@@ -72,7 +88,7 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     const skills = req.user.confirmed ? profile.skills : '';
     res.json({ jobs: skills.trim() ? await jobProvider.getJobs({ skills }) : [] });
   });
-  app.get('/api/applications', (req, res) => res.json({ applications: store.applications(req.user.id) }));
+  app.get('/api/applications', async (req, res) => res.json({ applications: await store.applications(req.user.id) }));
   app.post('/api/applications/start', async (req, res) => {
     const parsed = z.object({ jobId: z.string().min(1).max(200) }).safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Choose a valid job.');
@@ -81,25 +97,39 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     if (!job) throw new ApiError(404, 'This job is no longer in the available listings.');
     const url = safeExternalUrl(job.applyUrl || job.postingUrl);
     if (!url) throw new ApiError(422, 'This job has no valid application link.');
-    store.startApplication(req.user.id, job);
-    res.json({ applications: store.applications(req.user.id), url });
+    await store.startApplication(req.user.id, job);
+    res.json({ applications: await store.applications(req.user.id), url });
   });
-  app.patch('/api/applications/:jobId', (req, res) => {
+  app.patch('/api/applications/:jobId', async (req, res) => {
     const parsed = z.object({ status: z.enum(['Started','Applied','Interviewing','Offered','Rejected','Withdrawn']) }).safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Choose a valid application status.');
-    if (!store.updateApplication(req.user.id, req.params.jobId, parsed.data.status)) throw new ApiError(404, 'Application not found.');
-    res.json({ applications: store.applications(req.user.id) });
+    if (!await store.updateApplication(req.user.id, req.params.jobId, parsed.data.status)) throw new ApiError(404, 'Application not found.');
+    res.json({ applications: await store.applications(req.user.id) });
   });
   app.get('/api/profile', (req, res) => res.json({ user: publicUser(req.user) }));
-  app.post('/api/profile/confirm', (req, res) => {
+  app.post('/api/profile/confirm', async (req, res) => {
     const parsed = z.object({ confirmed: z.literal(true), profile: profileSchema }).safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Review and confirm valid profile fields before saving.');
-    store.saveProfile(req.user.id, parsed.data.profile);
+    await store.saveProfile(req.user.id, parsed.data.profile);
     // Reviewed draft has been consumed. The saved confirmed fields are now authoritative.
-    store.deleteDraft(req.user.id);
-    res.json({ user: publicUser(store.user(req.user.id)) });
+    await store.deleteDraft(req.user.id);
+    res.json({ user: publicUser(await store.user(req.user.id)) });
   });
-  app.get('/api/resumes/latest', (req, res) => res.json({ draft: store.draft(req.user.id) }));
+  app.get('/api/resumes/latest', async (req, res) => res.json({ draft: await store.draft(req.user.id) }));
+  app.get('/api/saved-jobs', async (req, res) => res.json({ savedJobs: await store.savedJobs(req.user.id) }));
+  app.post('/api/saved-jobs', async (req, res) => {
+    const parsed = z.object({ jobId: z.string().min(1).max(200) }).safeParse(req.body);
+    if (!parsed.success) throw new ApiError(400, 'Choose a valid job.');
+    const profile = JSON.parse(req.user.profile_json);
+    const job = (await jobProvider.getJobs({ skills: profile.skills })).find(item => String(item.id) === parsed.data.jobId);
+    if (!job) throw new ApiError(404, 'This job is no longer in the available listings.');
+    await store.saveJob(req.user.id, job);
+    res.json({ savedJobs: await store.savedJobs(req.user.id) });
+  });
+  app.delete('/api/saved-jobs/:jobId', async (req, res) => {
+    await store.removeSavedJob(req.user.id, req.params.jobId);
+    res.json({ savedJobs: await store.savedJobs(req.user.id) });
+  });
   const upload = multer({ storage: multer.memoryStorage(), limits: { fileSize: 10 * 1024 * 1024, files: 1, fields: 0, parts: 1 } });
   app.post('/api/resumes/parse', upload.single('resume'), async (req, res) => {
     let rawText;
@@ -107,7 +137,7 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     catch (error) { throw new ApiError(422, error.message); }
     const result = { fields: parseResumeFields(rawText), rawText, resumeName: req.file.originalname,
       warnings: ['Review all extracted fields. Skills and section headings may be missed; this parser is rule-based.'] };
-    store.saveDraft(req.user.id, result);
+    await store.saveDraft(req.user.id, result);
     res.json(result);
   });
   app.post('/api/jobs/match', async (req, res) => {

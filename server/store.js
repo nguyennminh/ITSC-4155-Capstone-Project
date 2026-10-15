@@ -1,6 +1,8 @@
 import { DatabaseSync } from 'node:sqlite';
 import { mkdirSync } from 'node:fs';
 import { dirname } from 'node:path';
+import { randomUUID } from 'node:crypto';
+import { MongoClient } from 'mongodb';
 import { emptyProfile } from '../src/data/mockData.js';
 
 export function openStore(filename = process.env.DB_PATH || 'server/data/jobswipe.sqlite') {
@@ -12,6 +14,11 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
       user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       job_id TEXT NOT NULL, job_json TEXT NOT NULL, status TEXT NOT NULL DEFAULT 'Started',
       started_at TEXT NOT NULL, updated_at TEXT NOT NULL, PRIMARY KEY(user_id, job_id)
+    );
+    CREATE TABLE IF NOT EXISTS saved_jobs (
+      user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      job_id TEXT NOT NULL, job_json TEXT NOT NULL, saved_at TEXT NOT NULL,
+      PRIMARY KEY(user_id, job_id)
     );
     CREATE TABLE IF NOT EXISTS users (
       id INTEGER PRIMARY KEY, email TEXT UNIQUE NOT NULL, password_hash TEXT NOT NULL,
@@ -30,6 +37,17 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
     applications(id) {
       return db.prepare('SELECT * FROM applications WHERE user_id=? ORDER BY started_at DESC').all(id)
         .map(row => ({ ...JSON.parse(row.job_json), id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at }));
+    },
+    savedJobs(id) {
+      return db.prepare('SELECT * FROM saved_jobs WHERE user_id=? ORDER BY saved_at DESC').all(id)
+        .map(row => JSON.parse(row.job_json));
+    },
+    saveJob(id, job) {
+      db.prepare('INSERT INTO saved_jobs VALUES(?,?,?,?) ON CONFLICT(user_id,job_id) DO UPDATE SET job_json=excluded.job_json')
+        .run(id, String(job.id), JSON.stringify(job), new Date().toISOString());
+    },
+    removeSavedJob(id, jobId) {
+      return db.prepare('DELETE FROM saved_jobs WHERE user_id=? AND job_id=?').run(id, jobId).changes;
     },
     startApplication(id, job) {
       const date = new Date().toISOString();
@@ -70,6 +88,108 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
         .get(hash, Date.now());
     },
     deleteSession(hash) { db.prepare('DELETE FROM sessions WHERE token_hash=?').run(hash); },
+  };
+}
+
+export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseName = process.env.DB_NAME || 'jobswipe') {
+  if (!uri) throw new Error('MONGODB_URI must be configured to use persistent MongoDB storage.');
+  const client = new MongoClient(uri);
+  await client.connect();
+  const db = client.db(databaseName);
+  const users = db.collection('users');
+  const applications = db.collection('applications');
+  const savedJobs = db.collection('saved_jobs');
+  const sessions = db.collection('sessions');
+  const drafts = db.collection('resume_drafts');
+
+  try {
+    await Promise.all([
+      users.createIndex({ email: 1 }, { unique: true }),
+      applications.createIndex({ user_id: 1, job_id: 1 }, { unique: true }),
+      savedJobs.createIndex({ user_id: 1, job_id: 1 }, { unique: true }),
+      sessions.createIndex({ token_hash: 1 }, { unique: true }),
+      sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
+      drafts.createIndex({ user_id: 1 }, { unique: true }),
+    ]);
+  } catch (error) {
+    await client.close();
+    throw error;
+  }
+
+  const mapUser = document => document ? { ...document, id: document._id } : undefined;
+  return {
+    close: () => client.close(),
+    async applications(id) {
+      const rows = await applications.find({ user_id: id }).sort({ started_at: -1 }).toArray();
+      return rows.map(row => ({ ...row.job_json, id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at }));
+    },
+    async savedJobs(id) {
+      const rows = await savedJobs.find({ user_id: id }).sort({ saved_at: -1 }).toArray();
+      return rows.map(row => row.job_json);
+    },
+    async saveJob(id, job) {
+      await savedJobs.updateOne(
+        { user_id: id, job_id: String(job.id) },
+        { $set: { job_json: job }, $setOnInsert: { saved_at: new Date().toISOString() } },
+        { upsert: true },
+      );
+    },
+    async removeSavedJob(id, jobId) {
+      return (await savedJobs.deleteOne({ user_id: id, job_id: jobId })).deletedCount;
+    },
+    async startApplication(id, job) {
+      const date = new Date().toISOString();
+      await applications.updateOne(
+        { user_id: id, job_id: String(job.id) },
+        { $setOnInsert: { job_json: job, status: 'Started', started_at: date, updated_at: date } },
+        { upsert: true },
+      );
+    },
+    async updateApplication(id, jobId, status) {
+      return (await applications.updateOne(
+        { user_id: id, job_id: jobId },
+        { $set: { status, updated_at: new Date().toISOString() } },
+      )).matchedCount;
+    },
+    findUser: async email => mapUser(await users.findOne({ email })),
+    async createUser(email, passwordHash, name, role) {
+      const profile = { ...emptyProfile, name, email };
+      const id = randomUUID();
+      try {
+        await users.insertOne({ _id: id, email, password_hash: passwordHash, role,
+          profile_json: JSON.stringify(profile), confirmed: 0 });
+        return id;
+      } catch (error) {
+        if (error.code === 11000) return null;
+        throw error;
+      }
+    },
+    user: async id => mapUser(await users.findOne({ _id: id })),
+    async saveProfile(id, profile) {
+      await users.updateOne({ _id: id }, { $set: { profile_json: JSON.stringify(profile), confirmed: 1 } });
+    },
+    async saveDraft(id, result) {
+      await drafts.updateOne({ user_id: id }, { $set: { result_json: JSON.stringify(result) } }, { upsert: true });
+    },
+    async draft(id) {
+      const row = await drafts.findOne({ user_id: id });
+      return row ? JSON.parse(row.result_json) : null;
+    },
+    async deleteDraft(id) { await drafts.deleteOne({ user_id: id }); },
+    async addSession(hash, id, expires) {
+      await sessions.deleteMany({ expires_at: { $lte: new Date() } });
+      await sessions.insertOne({ token_hash: hash, user_id: id, expires_at: new Date(expires) });
+    },
+    async sessionUser(hash) {
+      return mapUser(await sessions.aggregate([
+        { $match: { token_hash: hash, expires_at: { $gt: new Date() } } },
+        { $lookup: { from: 'users', localField: 'user_id', foreignField: '_id', as: 'user' } },
+        { $unwind: '$user' },
+        { $replaceWith: '$user' },
+        { $limit: 1 },
+      ]).next());
+    },
+    async deleteSession(hash) { await sessions.deleteOne({ token_hash: hash }); },
   };
 }
 
