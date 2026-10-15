@@ -1,6 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { jsonPost } from '../services/resumeService.js';
-import GoogleSignIn from '../Components/GoogleSignIn.jsx';
+import GoogleSignIn from '../components/GoogleSignIn.jsx';
 
 export default function Login({ onEnter, notice }) {
   const [register, setRegister] = useState(false);
