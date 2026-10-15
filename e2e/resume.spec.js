@@ -20,8 +20,8 @@ test('PBIs 10/11/14: upload, review edits/removals, reload, re-login and match s
   await expect(page.getByLabel('Skills (comma-separated)')).toHaveValue(/Python/);
   await page.getByLabel('Skills (comma-separated)').fill('Python, SQL');
   await page.getByLabel('Experience and projects').fill('');
-  await page.getByLabel('Certifications', { exact: true }).fill('');
-  await page.getByLabel('Education', { exact: true }).fill('Corrected university');
+  await page.getByRole('textbox', { name: 'Certifications', exact: true }).fill('');
+  await page.getByRole('textbox', { name: 'Education', exact: true }).fill('Corrected university');
   await expect(page.getByRole('button', { name: 'Confirm information' })).toBeDisabled();
   await page.getByLabel('I reviewed these fields').check();
   await page.getByLabel('Preferred job title').fill('');
@@ -32,10 +32,11 @@ test('PBIs 10/11/14: upload, review edits/removals, reload, re-login and match s
   await page.reload();
   await expect(page.getByRole('heading', { name: 'Data Engineering Intern' })).toBeVisible();
   await page.getByRole('button', { name: 'Profile', exact: true }).click();
-  await expect(page.getByLabel('Education', { exact: true })).toHaveValue('Corrected university');
+  await expect(page.getByRole('textbox', { name: 'Education', exact: true })).toHaveValue('Corrected university');
   await expect(page.getByLabel('Experience and projects')).toHaveValue('');
-  await expect(page.getByLabel('Certifications', { exact: true })).toHaveValue('');
+  await expect(page.getByRole('textbox', { name: 'Certifications', exact: true })).toHaveValue('');
   await page.getByRole('button', { name: 'Sign out' }).click();
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill('long-test-password');
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();

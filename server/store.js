@@ -43,9 +43,10 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
     findUser: email => db.prepare('SELECT * FROM users WHERE email = ?').get(email),
     createUser(email, passwordHash, name, role) {
       const profile = { ...emptyProfile, name, email };
-      const result = db.prepare('INSERT INTO users(email,password_hash,role,profile_json) VALUES(?,?,?,?)')
-        .run(email, passwordHash, role, JSON.stringify(profile));
-      return Number(result.lastInsertRowid);
+      // Let the unique constraint arbitrate simultaneous registrations.
+      const result = db.prepare('INSERT INTO users(email,password_hash,role,profile_json) VALUES(?,?,?,?) ON CONFLICT(email) DO NOTHING RETURNING id')
+        .get(email, passwordHash, role, JSON.stringify(profile));
+      return result ? Number(result.id) : null;
     },
     user: id => db.prepare('SELECT * FROM users WHERE id = ?').get(id),
     saveProfile(id, profile) {

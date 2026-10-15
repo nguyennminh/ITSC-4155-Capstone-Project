@@ -1,6 +1,21 @@
+const sessionExpiryListeners = new Set();
+
+export function onSessionExpired(listener) {
+  sessionExpiryListeners.add(listener);
+  return () => sessionExpiryListeners.delete(listener);
+}
+
 export async function api(path, options = {}) {
-  const response = await fetch(path, { ...options, credentials: 'same-origin' });
+  let response;
+  try { response = await fetch(path, { ...options, credentials: 'same-origin' }); }
+  catch (error) {
+    if (error.name === 'AbortError') throw error;
+    throw new Error('Could not connect to JobSwipe. Please try again.', { cause: error });
+  }
   const body = await response.json().catch(() => null);
+  if (response.status === 401 && !path.startsWith('/api/auth/')) {
+    for (const listener of sessionExpiryListeners) listener();
+  }
   if (!response.ok) throw new Error(body?.error || 'Request failed. Make sure npm run server is running.');
   if (!body) throw new Error('No API response. Make sure npm run server is running.');
   return body;

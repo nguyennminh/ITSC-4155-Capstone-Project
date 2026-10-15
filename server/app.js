@@ -36,15 +36,16 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     message: { error: 'Too many requests. Wait a minute and retry.' } }));
   app.use(express.json({ limit: '100kb' }));
   app.get('/api/health', (req, res) => res.json({ ok: true, aiConfigured: Boolean(process.env.GEMINI_API_KEY) }));
-  app.use('/api/auth', rateLimit({ windowMs: 60000, limit: 20, message: { error: 'Too many sign-in attempts. Wait a minute.' } }));
+  const authAttempts = rateLimit({ windowMs: 60000, limit: 20, message: { error: 'Too many sign-in attempts. Wait a minute.' } });
+  app.use(['/api/auth/register', '/api/auth/login'], authAttempts);
   app.post('/api/auth/register', async (req, res) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Enter a name, valid email, and a password of 10–128 characters.');
     const { name, email, password, role } = parsed.data;
     if (store.findUser(email)) throw new ApiError(409, 'An account with that email already exists.');
     const passwordHash = await hashPassword(password);
-    if (store.findUser(email)) throw new ApiError(409, 'An account with that email already exists.');
     const id = store.createUser(email, passwordHash, name, role);
+    if (id === null) throw new ApiError(409, 'An account with that email already exists.');
     issueSession(req, res, store, id);
     res.status(201).json({ user: publicUser(store.user(id)) });
   });

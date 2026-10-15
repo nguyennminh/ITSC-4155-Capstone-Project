@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function Navigation({ page, navigate, role, logout }) {
+export default function Navigation({ page, navigate, role, logout, logoutBusy }) {
   const links = role === 'Recruiter'
     ? [['recruiter', 'Applicants']]
     : [['discover', 'Discover'], ['saved', 'Saved Jobs'], ['applications', 'Applications'], ['profile', 'Profile']];
@@ -9,6 +9,6 @@ export default function Navigation({ page, navigate, role, logout }) {
     <nav aria-label="Main navigation">
       {links.map(([id, label]) => <button key={id} className={page === id ? 'active' : ''} aria-current={page === id ? 'page' : undefined} onClick={() => navigate(id)}>{label}</button>)}
     </nav>
-    <button onClick={logout}>Sign out</button>
+    <button onClick={logout} disabled={logoutBusy}>{logoutBusy ? 'Signing out…' : 'Sign out'}</button>
   </header>;
 }
