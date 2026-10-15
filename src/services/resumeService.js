@@ -28,6 +28,8 @@ export async function parseResume(file, signal) {
   form.append('resume', file);
   return api('/api/resumes/parse', { method: 'POST', body: form, signal });
 }
+export const getSavedResume = signal => api('/api/resumes', { signal });
+export const deleteSavedResume = () => api('/api/resumes/file', { method: 'DELETE' });
 export function getMatches(consent, signal) {
   // Qualifications come from the server's saved confirmed profile, not browser claims.
   return api('/api/jobs/match', { method: 'POST', signal,

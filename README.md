@@ -8,10 +8,12 @@ Definition of Done: Reviewed, merged, and matching its acceptance criteria
 
 ## Persistent data
 
-The API stores accounts, profiles, resume drafts, sessions, applications, and saved jobs.
-Each record is associated with the authenticated account; the server derives that account
-from its session cookie rather than accepting a user ID from the browser. Removing a saved
-job deletes that user's saved-job record.
+The API stores accounts, profiles, parsed resume drafts, uploaded resume files, sessions,
+applications, and saved jobs. Each record is associated with the authenticated account; the
+server derives that account from its session cookie rather than accepting a user ID from the
+browser. Resume files (PDF/DOCX, up to 10 MB) are stored privately with the account, can be
+downloaded while signed in, and can be deleted. Removing a saved job deletes that user's
+saved-job record.
 
 For local development, the server uses SQLite at `server/data/jobswipe.sqlite` by default.
 When `MONGODB_URI` is set, it uses MongoDB instead. Production startup refuses to use

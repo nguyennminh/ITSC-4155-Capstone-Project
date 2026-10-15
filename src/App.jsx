@@ -232,6 +232,7 @@ export default function App() {
             profile={profile}
             resume={resume}
             onConfirm={confirmResume}
+            onSavedResumeRemoved={setProfile}
             onCancel={() => navigate(page === "onboarding" ? "discover" : "profile")}
           />
         )}
