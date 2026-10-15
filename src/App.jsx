@@ -11,7 +11,7 @@ import Profile from "./pages/Profile.jsx";
 
 import { emptyProfile } from "./data/mockData.js";
 import { getJobs } from "./services/jobService.js";
-import { api, jsonPost } from "./services/resumeService.js";
+import { api, jsonPost, onSessionExpired } from "./services/resumeService.js";
 
 const initialProfile = {
   ...emptyProfile,
@@ -23,6 +23,8 @@ export default function App() {
   const [page, setPage] = useState("login");
   const [sessionLoading, setSessionLoading] = useState(true);
   const [sessionError, setSessionError] = useState("");
+  const [loginNotice, setLoginNotice] = useState("");
+  const [logoutBusy, setLogoutBusy] = useState(false);
   const [role, setRole] = useState("Job seeker");
   const [profile, setProfile] = useState({ ...initialProfile });
   const [resume, setResume] = useState(null);
@@ -39,8 +41,10 @@ export default function App() {
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    const unsubscribe = onSessionExpired(() => resetAccount('Your session has expired. Please sign in again.'));
     loadJobs();
     restoreSession();
+    return unsubscribe;
   }, []);
 
   async function restoreSession() {
@@ -75,6 +79,7 @@ export default function App() {
     setSaved([]);
     setApplications([]);
     setMessage("");
+    setLoginNotice("");
     setPage(user.role === "Recruiter" ? "recruiter" : user.confirmed ? "discover" : "onboarding");
   }
 
@@ -140,8 +145,15 @@ export default function App() {
   }
 
   async function logout() {
+    if (logoutBusy) return;
+    setLogoutBusy(true);
     try { await jsonPost('/api/auth/logout', {}); }
     catch (err) { setMessage(err.message); return; }
+    finally { setLogoutBusy(false); }
+    resetAccount();
+  }
+
+  function resetAccount(notice = "") {
     setProfile({ ...initialProfile });
     setResume(null);
     setProfileConfirmed(false);
@@ -149,13 +161,15 @@ export default function App() {
     setApplications([]);
     setMessage("");
     setRole("Job seeker");
+    setSessionError("");
+    setLoginNotice(notice);
     setPage("login");
   }
 
   if (sessionLoading) return <main className="container"><p role="status">Loading your account…</p></main>;
   if (sessionError) return <main className="container"><p role="alert">{sessionError}</p><button onClick={restoreSession}>Retry connection</button></main>;
   if (page === "login") {
-    return <Login onEnter={enter} />;
+    return <Login onEnter={enter} notice={loginNotice} />;
   }
 
   const isJobPage = page === "discover" || page === "saved";
@@ -167,6 +181,7 @@ export default function App() {
         navigate={navigate}
         role={role}
         logout={logout}
+        logoutBusy={logoutBusy}
       />
 
       <div className="container">
