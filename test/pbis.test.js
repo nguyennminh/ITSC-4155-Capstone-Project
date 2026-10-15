@@ -9,6 +9,7 @@ import { openStore } from '../server/store.js';
 import { extractText } from '../server/services/extractText.js';
 import { parseResumeFields } from '../server/services/resumeFields.js';
 import { rankJobs } from '../server/services/matching.js';
+import { jobs } from '../src/data/mockData.js';
 import { emptyProfile } from '../src/data/mockData.js';
 
 const profile = { ...emptyProfile, name: 'Alex', email: 'alex@example.com', skills: 'React, JavaScript, SQL', experience: '', title: '', location: '' };
@@ -16,7 +17,7 @@ const password = 'a-long-test-password';
 async function fixture(name) { return readFile(new URL(`./fixtures/${name}`, import.meta.url)); }
 async function start(filename = ':memory:', options = {}) {
   const store = openStore(filename);
-  const server = createApp({ store, ...options }).listen(0, '127.0.0.1');
+  const server = createApp({ store, jobProvider: { getJobs: async () => jobs }, ...options }).listen(0, '127.0.0.1');
   await once(server, 'listening');
   const base = `http://127.0.0.1:${server.address().port}`;
   return { store, base, async stop() { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); store.close(); } };
