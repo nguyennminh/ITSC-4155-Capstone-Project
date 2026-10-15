@@ -9,6 +9,7 @@ import { parseResumeFields } from './services/resumeFields.js';
 import { ApiError, matchJobs } from './services/aiMatcher.js';
 import { openStore, publicUser } from './store.js';
 import { hashPassword, verifyPassword, sessionHash, issueSession, clearSession } from './auth.js';
+import { installGoogleAuth } from './googleAuth.js';
 
 const loginSchema = z.object({ email: z.string().trim().email().max(254).transform(v => v.toLowerCase()), password: z.string().min(10).max(128) });
 const registerSchema = loginSchema.extend({ name: z.string().trim().min(1).max(100), role: z.enum(['Job seeker', 'Recruiter']).default('Job seeker') });
@@ -21,7 +22,7 @@ const profileSchema = z.object({
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
 });
-export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider() } = {}) {
+export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider(), googleClientId, verifyGoogle } = {}) {
   const store = new Proxy(providedStore, {
     get(target, property, receiver) {
       const method = Reflect.get(target, property, receiver);
@@ -53,6 +54,7 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
   app.get('/api/health', (req, res) => res.json({ ok: true, aiConfigured: Boolean(process.env.GEMINI_API_KEY) }));
   const authAttempts = rateLimit({ windowMs: 60000, limit: 20, message: { error: 'Too many sign-in attempts. Wait a minute.' } });
   app.use(['/api/auth/register', '/api/auth/login'], authAttempts);
+  installGoogleAuth(app, { store, authAttempts, clientId: googleClientId, verify: verifyGoogle });
   app.post('/api/auth/register', async (req, res) => {
     const parsed = registerSchema.safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Enter a name, valid email, and a password of 10–128 characters.');

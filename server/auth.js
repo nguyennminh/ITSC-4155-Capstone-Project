@@ -9,6 +9,7 @@ export async function hashPassword(password) {
   return `${salt}:${(await derive(password, salt, 64)).toString('hex')}`;
 }
 export async function verifyPassword(password, stored) {
+  if (!stored) return false;
   const [salt, value] = stored.split(':');
   const expected = Buffer.from(value, 'hex');
   const actual = await derive(password, salt, 64);

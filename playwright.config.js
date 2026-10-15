@@ -9,7 +9,7 @@ export default defineConfig({
   use: { baseURL: 'http://127.0.0.1:5173', headless: true },
   webServer: [
     { command: 'node e2e/support/server.js', url: 'http://127.0.0.1:3001/api/health', reuseExistingServer: false,
-      env: { DB_PATH: join(dataDirectory, 'test.sqlite'), GEMINI_API_KEY: '' } },
+      env: { DB_PATH: join(dataDirectory, 'test.sqlite'), GEMINI_API_KEY: '', GOOGLE_CLIENT_ID: '' } },
     { command: 'npm run dev', url: 'http://127.0.0.1:5173', reuseExistingServer: false },
   ],
 });

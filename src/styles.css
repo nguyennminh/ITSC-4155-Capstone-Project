@@ -210,6 +210,10 @@ small,
 
 /* Onboarding */
 
+.google-sign-in { border-bottom: 1px solid #d7e0e8; padding-bottom: 1rem; margin-bottom: 1rem; }
+.google-sign-in fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+.google-sign-in fieldset:disabled { opacity: .6; }
+
 .dropzone {
   padding: 2rem;
   border: 2px dashed #087f83;

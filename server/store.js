@@ -4,6 +4,7 @@ import { dirname } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { MongoClient } from 'mongodb';
 import { emptyProfile } from '../src/data/mockData.js';
+import { sqliteGoogleStore, mongoGoogleStore } from './googleStore.js';
 
 export function openStore(filename = process.env.DB_PATH || 'server/data/jobswipe.sqlite') {
   if (filename !== ':memory:') mkdirSync(dirname(filename), { recursive: true });
@@ -32,7 +33,7 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       result_json TEXT NOT NULL
     );`);
-  return {
+  const store = {
     close: () => db.close(),
     applications(id) {
       return db.prepare('SELECT * FROM applications WHERE user_id=? ORDER BY started_at DESC').all(id)
@@ -89,6 +90,7 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
     },
     deleteSession(hash) { db.prepare('DELETE FROM sessions WHERE token_hash=?').run(hash); },
   };
+  return Object.assign(store, sqliteGoogleStore(db, store));
 }
 
 export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseName = process.env.DB_NAME || 'jobswipe') {
@@ -117,7 +119,11 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
   }
 
   const mapUser = document => document ? { ...document, id: document._id } : undefined;
+  let google;
+  try { google = await mongoGoogleStore(db, client, mapUser); }
+  catch (error) { await client.close(); throw error; }
   return {
+    ...google,
     close: () => client.close(),
     async applications(id) {
       const rows = await applications.find({ user_id: id }).sort({ started_at: -1 }).toArray();

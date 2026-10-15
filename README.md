@@ -40,3 +40,14 @@ local filesystem is not used as the production database.
 
 For local MongoDB development, set `MONGODB_URI` and optionally `DB_NAME` in an untracked
 `.env` file. Without a MongoDB URI, non-production runs continue to use local SQLite.
+
+## Google sign-in
+
+Google sign-in is optional and keeps email/password accounts working. Copy `.env.example`
+to `.env` if needed, configure a Google OAuth **Web application** client, and set
+`GOOGLE_CLIENT_ID`. In Render, add the same environment variable to the service and restart
+it. Register the exact frontend origins in Google Cloud, including the Render HTTPS origin.
+
+Existing accounts require their JobSwipe password once before Google is linked. New Google
+users choose Job seeker or Recruiter. MongoDB Google sign-in uses transactions and requires
+a replica set, as provided by Atlas. See [authentication setup and verification](docs/authentication.md#google-sign-in).
