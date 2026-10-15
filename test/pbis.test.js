@@ -71,8 +71,9 @@ test('#14 only qualification fields are read when preparing Gemini context', () 
 });
 test('#13 jobs endpoint searches with skills from the confirmed profile only', async t => {
   let searchedSkills;
+  let refreshed = false;
   const app = await start(':memory:', {
-    jobProvider: { getJobs: async ({ skills } = {}) => { searchedSkills = skills; return jobs; } },
+    jobProvider: { getJobs: async ({ skills, refresh } = {}) => { searchedSkills = skills; refreshed = refresh; return jobs; } },
   }); t.after(() => app.stop());
   const call = client(app.base);
   await register(call, 'jobs@example.com');
@@ -81,6 +82,9 @@ test('#13 jobs endpoint searches with skills from the confirmed profile only', a
   await confirm(call, { ...profile, skills: 'Python, SQL' });
   assert.equal((await call('/api/jobs')).data.jobs.length, jobs.length);
   assert.equal(searchedSkills, 'Python, SQL');
+  assert.equal(refreshed, false);
+  assert.equal((await call('/api/jobs?refresh=true')).data.jobs.length, jobs.length);
+  assert.equal(refreshed, true);
 });
 test('#10 and #11 account isolation, authentication and confirmed-data ownership', async t => {
   const app = await start(); t.after(() => app.stop());

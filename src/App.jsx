@@ -74,18 +74,24 @@ export default function App() {
     finally { setSessionLoading(false); }
   }
 
-  async function loadJobs() {
+  async function loadJobs({ refresh = false } = {}) {
     setLoading(true);
     setError("");
 
     try {
-      const results = await getJobs();
+      const results = await getJobs({ refresh });
       setJobs(results);
     } catch (err) {
       setError(err.message || "Could not load jobs. Please retry.");
     } finally {
       setLoading(false);
     }
+  }
+
+  function refreshJobs() {
+    setRecommendations([]);
+    setDetail(null);
+    return loadJobs({ refresh: true });
   }
 
   function enter(user) {
@@ -272,6 +278,7 @@ export default function App() {
             onDetails={openDetails}
             recommendations={recommendations}
             onResults={receiveMatches}
+            onRefreshJobs={refreshJobs}
           />
         )}
 

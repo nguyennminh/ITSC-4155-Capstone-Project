@@ -1,5 +1,7 @@
 import { api } from './resumeService.js';
-export async function getJobs() { return (await api('/api/jobs')).jobs; }
+export async function getJobs({ refresh = false } = {}) {
+  return (await api(`/api/jobs${refresh ? '?refresh=true' : ''}`)).jobs;
+}
 
 export function matchSkills(job, skillsText) {
   const skills = String(skillsText || '').split(',').map(skill => skill.trim().toLowerCase()).filter(Boolean);

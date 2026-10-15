@@ -3,7 +3,7 @@ import ApplyButton from '../components/ApplyButton.jsx';
 import JobCard from '../components/JobCard.jsx';
 import { getMatches } from '../services/resumeService.js';
 
-export default function Discover({ jobs, profile, confirmed, saved, onSave, onApply, onReview, onDetails, onResults }) {
+export default function Discover({ jobs, profile, confirmed, saved, onSave, onApply, onReview, onDetails, onResults, onRefreshJobs }) {
   const [skipped, setSkipped] = useState([]);
   const [startX, setStartX] = useState(null);
   const [matches, setMatches] = useState(null);
@@ -33,6 +33,7 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
   return <section>
     <h1>Discover jobs</h1>
     <p>Swipe left to skip, right to save. Listings supplied by Adzuna.</p>
+    <button type="button" onClick={onRefreshJobs}>Refresh Adzuna jobs</button>
     <div className="card">
       <h2>Match jobs with Gemini reasoning</h2>
       <p>Gemini compares your confirmed qualifications with each available job’s title, requirements, and description. It returns a fit estimate, specific evidence for the match, and requirements not found in your profile. Work arrangement and employment type filter jobs.</p>

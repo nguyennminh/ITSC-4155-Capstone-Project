@@ -25,6 +25,19 @@ test('#13 caches concurrent fetches and reports provider errors', async () => {
   await assert.rejects(()=>createJobProvider({appId:'x',appKey:'y',fetchImpl:async()=>({ok:true,json:async()=>({})})}).getJobs({ skills: 'React' }),/unexpected/);
 });
 
+test('#13 refresh bypasses the Adzuna cache and replaces cached listings', async () => {
+  let count = 0;
+  const provider = createJobProvider({ appId: 'test', appKey: 'test', fetchImpl: async () => {
+    count++;
+    return { ok: true, json: async () => ({ results: [{ ...row, title: `React developer ${count}` }] }) };
+  } });
+  assert.equal((await provider.getJobs({ skills: 'React' }))[0].title, 'React developer 1');
+  assert.equal((await provider.getJobs({ skills: 'React' }))[0].title, 'React developer 1');
+  assert.equal((await provider.getJobs({ skills: 'React', refresh: true }))[0].title, 'React developer 2');
+  assert.equal((await provider.getJobs({ skills: 'React' }))[0].title, 'React developer 2');
+  assert.equal(count, 2);
+});
+
 test('#13 searches Adzuna using confirmed resume skills', async () => {
   let requestedUrl;
   const provider = createJobProvider({ appId: 'test', appKey: 'test', fetchImpl: async url => {

@@ -88,7 +88,7 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
   app.get('/api/jobs', async (req, res) => {
     const profile = JSON.parse(req.user.profile_json);
     const skills = req.user.confirmed ? profile.skills : '';
-    res.json({ jobs: skills.trim() ? await jobProvider.getJobs({ skills }) : [] });
+    res.json({ jobs: skills.trim() ? await jobProvider.getJobs({ skills, refresh: req.query.refresh === 'true' }) : [] });
   });
   app.get('/api/applications', async (req, res) => res.json({ applications: await store.applications(req.user.id) }));
   app.post('/api/applications/start', async (req, res) => {

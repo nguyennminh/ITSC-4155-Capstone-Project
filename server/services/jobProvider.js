@@ -45,14 +45,14 @@ export function createJobProvider({ fetchImpl = fetch, appId = process.env.ADZUN
     if (!Array.isArray(data.results)) throw new ApiError(502, 'Job provider returned an unexpected response.');
     return normalizeJobs(data.results.slice(0,20), candidateSkills);
   }
-  return { async getJobs({ skills = '' } = {}) {
+  return { async getJobs({ skills = '', refresh = false } = {}) {
     if (!appId || !appKey) throw new ApiError(503, 'Add ADZUNA_APP_ID and ADZUNA_APP_KEY to the server .env and restart.');
     const candidateSkills = [...new Set(String(skills).split(/[,;\n|]+/)
       .map(skill => skill.trim().slice(0, 80)).filter(Boolean))];
     if (!candidateSkills.length) throw new ApiError(422, 'Add skills from your resume or profile before searching for jobs.');
     const what = candidateSkills.join(' ');
     const cacheKey = `${what}\n${process.env.JOBS_LOCATION || ''}`;
-    if (cached?.key === cacheKey && now() - cached.fetchedAt < 600000) return structuredClone(cached.jobs);
+    if (!refresh && cached?.key === cacheKey && now() - cached.fetchedAt < 600000) return structuredClone(cached.jobs);
     if (!pending.has(cacheKey)) {
       const request = load(what, candidateSkills).then(jobs => {
         cached = { key: cacheKey, jobs, fetchedAt: now() };
