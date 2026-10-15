@@ -6,11 +6,13 @@ export default function Profile({
   onSaveProfile,
   resume,
   onReviewResume,
+  onDeleteAccount,
 }) {
   const [form, setForm] = useState({ ...profile });
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -58,6 +60,13 @@ export default function Profile({
     setForm({ ...profile });
     setError("");
     setMessage("Unsaved profile changes discarded.");
+  }
+
+  async function handleDelete() {
+    if (!window.confirm("This permanently deletes your account, saved jobs, applications, and resume data. Continue?")) return;
+    setDeleting(true); setError("");
+    try { await onDeleteAccount(); }
+    catch (err) { setError(err.message); setDeleting(false); }
   }
 
   return (
@@ -218,6 +227,13 @@ export default function Profile({
           </button>
         </div>
       </form>
+      <section className="profile-panel danger-zone" aria-labelledby="delete-account-heading">
+        <h2 id="delete-account-heading">Delete account</h2>
+        <p>Permanently delete your profile, saved jobs, applications, resume data, and active sessions.</p>
+        <button type="button" className="secondary-button" disabled={deleting} onClick={handleDelete}>
+          {deleting ? "Deleting account…" : "Delete my account"}
+        </button>
+      </section>
     </main>
   );
 }

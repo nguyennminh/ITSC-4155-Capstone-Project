@@ -33,7 +33,7 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       result_json TEXT NOT NULL
     );
-    CREATE TABLE IF NOT EXISTS resumes (
+  CREATE TABLE IF NOT EXISTS resumes (
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       original_name TEXT NOT NULL, content_type TEXT NOT NULL, data BLOB NOT NULL,
       saved_at TEXT NOT NULL
@@ -105,6 +105,9 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
       const row = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(id);
       if (row) db.prepare('UPDATE users SET profile_json = ? WHERE id = ?')
         .run(JSON.stringify({ ...JSON.parse(row.profile_json), resumeName: '' }), id);
+    },
+    deleteAccount(id) {
+      return db.prepare('DELETE FROM users WHERE id=?').run(id).changes;
     },
     addSession(hash, id, expires) {
       db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(Date.now());
@@ -241,6 +244,16 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
         const profile = JSON.parse(user.profile_json);
         await users.updateOne({ _id: id }, { $set: { profile_json: JSON.stringify({ ...profile, resumeName: '' }) } });
       }
+    },
+    async deleteAccount(id) {
+      await Promise.all([
+        applications.deleteMany({ user_id: id }),
+        savedJobs.deleteMany({ user_id: id }),
+        sessions.deleteMany({ user_id: id }),
+        drafts.deleteMany({ user_id: id }),
+        resumes.deleteMany({ user_id: id }),
+        users.deleteOne({ _id: id }),
+      ]);
     },
     async addSession(hash, id, expires) {
       await sessions.deleteMany({ expires_at: { $lte: new Date() } });

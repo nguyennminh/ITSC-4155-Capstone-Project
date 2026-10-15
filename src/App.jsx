@@ -22,6 +22,7 @@ import { emptyProfile } from "./data/mockData.js";
 import { getJobs } from "./services/jobService.js";
 import { api, jsonPost, onSessionExpired } from "./services/resumeService.js";
 import { getSavedJobs, removeSavedJob as deleteSavedJob, saveJob as persistSavedJob } from "./services/savedJobService.js";
+import { deleteAccount } from "./services/resumeService.js";
 
 const initialProfile = {
   ...emptyProfile,
@@ -217,6 +218,12 @@ export default function App() {
     setPage("login");
   }
 
+  async function removeAccount() {
+    await deleteAccount();
+    setProfile({ ...initialProfile }); setResume(null); setProfileConfirmed(false); setSaved([]);
+    setApplications([]); setDetail(null); setRecommendations([]); setJobs([]); setRole("Job seeker"); setPage("login");
+  }
+
   if (sessionLoading) return <main className="container"><p role="status">Loading your account…</p></main>;
   if (sessionError) return <main className="container"><p role="alert">{sessionError}</p><button onClick={restoreSession}>Retry connection</button></main>;
   if (page === "login") {
@@ -264,6 +271,7 @@ export default function App() {
             onSaveProfile={saveProfile}
             resume={resume}
             onReviewResume={() => navigate("resume")}
+            onDeleteAccount={removeAccount}
           />
         )}
 
