@@ -76,8 +76,17 @@ export function rankJobs(profile = {}, jobs = []) {
     if (!acceptsPreference(profile.mode, job.mode) || !acceptsPreference(profile.type, job.type)) continue;
 
     const skills = Array.isArray(job.skills) ? job.skills : [];
-    const required = [...new Set(skills.filter(skill => typeof skill === 'string')
+    const required = [...new Set(skills.filter(skill => typeof skill === 'string' && skill.length <= 120)
       .map(canonicalSkill).filter(Boolean))];
+    const resumeSkills = [...new Set(String(profile.skills ?? '').split(/[,;\n|]+/)
+      .map(skill => canonicalSkill(skill.trim().slice(0, 120))).filter(Boolean))].slice(0, 100);
+    const postingText = normalize([job.title, job.description]
+      .map(value => qualificationText(value)).join('\n'));
+    for (const skill of resumeSkills) {
+      if ((skillAliases[skill] || [skill]).some(alias => hasTerm(postingText, alias)) && !required.includes(skill)) {
+        required.push(skill);
+      }
+    }
     const matched = required.filter(skill => (skillAliases[skill] || [skill])
       .some(alias => hasTerm(qualifications, alias)));
 

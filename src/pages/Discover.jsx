@@ -32,6 +32,7 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
   const available = (matches || []).filter(match => !skipped.includes(match.jobId));
   const current = available[0];
   const job = jobs.find(job => job.id === current?.jobId);
+  const resumeSkills = String(profile.skills || '').split(/[,;\n|]+/).map(skill => skill.trim()).filter(Boolean);
   function skip() { if (job) setSkipped(ids => [...ids, job.id]); }
   function saveAndSkip() { if (job) { onSave(job.id); skip(); } }
   return <section>
@@ -39,7 +40,14 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
     <p>Swipe left to skip, right to save. Listings supplied by Adzuna.</p>
     <div className="card">
       <h2>Match your confirmed qualifications</h2>
-      <p>Scores use a consistent keyword formula: up to 90 points for required skills evidenced in your qualifications, plus 5 each for preferred title and location. Work arrangement and employment type filter jobs.</p>
+      <p>Jobs can match when at least one of your skills appears in the listing, even if Adzuna does not label it as a skill. Scores use a keyword formula: up to 90 points for skill overlap, plus 5 each for preferred title and location. Work arrangement and employment type filter jobs.</p>
+      <p className="muted">Your confirmed skill names are sent to Adzuna as alternative search terms, so listings matching any of your skills can be considered. Your resume text and personal details are not sent.</p>
+      {confirmed && <div aria-label="Skills used for matching">
+        <strong>Skills from your confirmed resume/profile</strong>
+        {resumeSkills.length
+          ? <div className="tags">{resumeSkills.map((skill, index) => <span key={`${skill}-${index}`}>{skill}</span>)}</div>
+          : <p className="muted">No skills are saved. Add skills in your profile or review your resume information.</p>}
+      </div>}
       {!confirmed && <p className="notice">Confirm your information first. <button onClick={onReview}>Review information</button></p>}
       <label className="checkbox-label"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/>
         Use Gemini to rank jobs by sending my qualification fields and preferences to Google. Name/email fields are excluded; remove personal details from free text. Free-tier content may be used for product improvement.

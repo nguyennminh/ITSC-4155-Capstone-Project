@@ -68,12 +68,17 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     if (!req.user) return res.status(401).json({ error: 'Sign in to access your resume and profile.' });
     next();
   });
-  app.get('/api/jobs', async (req, res) => res.json({ jobs: await jobProvider.getJobs() }));
+  app.get('/api/jobs', async (req, res) => {
+    const profile = JSON.parse(req.user.profile_json);
+    const skills = req.user.confirmed ? profile.skills : '';
+    res.json({ jobs: skills.trim() ? await jobProvider.getJobs({ skills }) : [] });
+  });
   app.get('/api/applications', (req, res) => res.json({ applications: store.applications(req.user.id) }));
   app.post('/api/applications/start', async (req, res) => {
     const parsed = z.object({ jobId: z.string().min(1).max(200) }).safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Choose a valid job.');
-    const job = (await jobProvider.getJobs()).find(job => String(job.id) === parsed.data.jobId);
+    const profile = JSON.parse(req.user.profile_json);
+    const job = (await jobProvider.getJobs({ skills: profile.skills })).find(job => String(job.id) === parsed.data.jobId);
     if (!job) throw new ApiError(404, 'This job is no longer in the available listings.');
     const url = safeExternalUrl(job.applyUrl || job.postingUrl);
     if (!url) throw new ApiError(422, 'This job has no valid application link.');
@@ -111,7 +116,8 @@ export function createApp({ store = openStore(), extract = extractText, explain 
     const request = z.object({ useAi: z.boolean().default(false) }).safeParse(req.body || {});
     if (!request.success) throw new ApiError(400, 'Invalid matching request.');
     const profile = JSON.parse(req.user.profile_json);
-    const jobs = await jobProvider.getJobs();
+    if (!profile.skills.trim()) throw new ApiError(422, 'Add skills from your resume or profile before matching jobs.');
+    const jobs = await jobProvider.getJobs({ skills: profile.skills });
     let matches = rankJobs(profile, jobs);
     let source = 'deterministic';
     let warning = '';

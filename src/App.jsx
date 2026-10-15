@@ -57,7 +57,6 @@ export default function App() {
 
   useEffect(() => {
     const unsubscribe = onSessionExpired(() => resetAccount('Your session has expired. Please sign in again.'));
-    loadJobs();
     restoreSession();
     return unsubscribe;
   }, []);
@@ -87,7 +86,6 @@ export default function App() {
   }
 
   function enter(user) {
-    loadJobs();
     getApplications().then(result => setApplications(result.applications)).catch(err => setMessage(err.message));
     setDetail(null); setRecommendations([]);
     setProfile(user.profile);
@@ -98,6 +96,8 @@ export default function App() {
     setApplications([]);
     setMessage("");
     setLoginNotice("");
+    if (user.confirmed && user.profile.skills.trim()) loadJobs();
+    else { setJobs([]); setLoading(false); setError(""); }
     setPage(user.role === "Recruiter" ? "recruiter" : user.confirmed ? "discover" : "onboarding");
   }
 
@@ -113,6 +113,8 @@ export default function App() {
     setRecommendations([]);
     setMatchSource('deterministic');
     setDetail(null);
+    if (updatedProfile.skills.trim()) await loadJobs();
+    else { setJobs([]); setLoading(false); setError(""); }
   }
 
   async function confirmResume(updatedProfile, file) {

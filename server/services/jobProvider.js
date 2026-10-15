@@ -1,13 +1,14 @@
 import { ApiError } from './aiMatcher.js';
 import { safeExternalUrl } from '../../src/services/linkService.js';
-const skills = ['JavaScript','TypeScript','React','Node.js','Python','Java','SQL','C++','C#','HTML','CSS','Git','AWS','Azure','Docker','PostgreSQL','MySQL','Snowflake','Power BI','Tableau','Excel','Spark','FastAPI','MongoDB'];
+import { skillCatalog } from '../../src/data/skillCatalog.js';
 export function plainText(value) {
   return String(value || '').replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, '')
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
 }
-export function normalizeJobs(rows) {
+export function normalizeJobs(rows, candidateSkills = []) {
   const seen = new Set();
+  const searchableSkills = [...new Set([...skillCatalog, ...candidateSkills])];
   return rows.flatMap(row => {
     if (!row || row.expired === true || row.status === 'expired' || row.status === 'unavailable') return [];
     const title = plainText(row.title), company = plainText(row.company?.display_name);
@@ -18,7 +19,7 @@ export function normalizeJobs(rows) {
     if (seen.has(id) || seen.has(postingUrl) || seen.has(fingerprint)) return [];
     seen.add(id); seen.add(postingUrl); seen.add(fingerprint);
     const text = `${title} ${description}`;
-    const jobSkills = skills.filter(skill => {
+    const jobSkills = searchableSkills.filter(skill => {
       const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       return new RegExp(`(^|[^a-z0-9+#])${escaped}(?=$|[^a-z0-9+#])`, 'i').test(text);
     });
@@ -30,11 +31,11 @@ export function normalizeJobs(rows) {
   });
 }
 export function createJobProvider({ fetchImpl = fetch, appId = process.env.ADZUNA_APP_ID, appKey = process.env.ADZUNA_APP_KEY, now = Date.now } = {}) {
-  let cached = null, fetchedAt = 0, pending = null;
-  async function load() {
-    if (!appId || !appKey) throw new ApiError(503, 'Add ADZUNA_APP_ID and ADZUNA_APP_KEY to the server .env and restart.');
+  let cached = null;
+  const pending = new Map();
+  async function load(what, candidateSkills) {
     const url = new URL('https://api.adzuna.com/v1/api/jobs/us/search/1');
-    url.search = new URLSearchParams({ app_id: appId, app_key: appKey, results_per_page: '20', what: process.env.JOBS_QUERY || 'software engineer', ...(process.env.JOBS_LOCATION ? { where: process.env.JOBS_LOCATION } : {}) }).toString();
+    url.search = new URLSearchParams({ app_id: appId, app_key: appKey, results_per_page: '20', what_or: what, ...(process.env.JOBS_LOCATION ? { where: process.env.JOBS_LOCATION } : {}) }).toString();
     let response;
     try { response = await fetchImpl(url, { signal: AbortSignal.timeout(15000) }); }
     catch { throw new ApiError(502, 'Job provider could not connect. Retry later.'); }
@@ -42,11 +43,23 @@ export function createJobProvider({ fetchImpl = fetch, appId = process.env.ADZUN
     let data;
     try { data = await response.json(); } catch { throw new ApiError(502, 'Job provider returned invalid JSON.'); }
     if (!Array.isArray(data.results)) throw new ApiError(502, 'Job provider returned an unexpected response.');
-    cached = normalizeJobs(data.results.slice(0,20)); fetchedAt = now(); return cached;
+    return normalizeJobs(data.results.slice(0,20), candidateSkills);
   }
-  return { async getJobs() {
-    if (cached && now() - fetchedAt < 600000) return structuredClone(cached);
-    if (!pending) pending = load().finally(() => { pending = null; });
-    return structuredClone(await pending);
+  return { async getJobs({ skills = '' } = {}) {
+    if (!appId || !appKey) throw new ApiError(503, 'Add ADZUNA_APP_ID and ADZUNA_APP_KEY to the server .env and restart.');
+    const candidateSkills = [...new Set(String(skills).split(/[,;\n|]+/)
+      .map(skill => skill.trim().slice(0, 80)).filter(Boolean))];
+    if (!candidateSkills.length) throw new ApiError(422, 'Add skills from your resume or profile before searching for jobs.');
+    const what = candidateSkills.join(' ');
+    const cacheKey = `${what}\n${process.env.JOBS_LOCATION || ''}`;
+    if (cached?.key === cacheKey && now() - cached.fetchedAt < 600000) return structuredClone(cached.jobs);
+    if (!pending.has(cacheKey)) {
+      const request = load(what, candidateSkills).then(jobs => {
+        cached = { key: cacheKey, jobs, fetchedAt: now() };
+        return jobs;
+      }).finally(() => pending.delete(cacheKey));
+      pending.set(cacheKey, request);
+    }
+    return structuredClone(await pending.get(cacheKey));
   } };
 }

@@ -1,4 +1,6 @@
 // A small, editable parser. It uses headings and known skill names, not AI.
+import { skillCatalog } from '../../src/data/skillCatalog.js';
+
 const headings = {
   skills: /^(technical skills|skills|technologies|core competencies)$/i,
   education: /^(education|academic background)$/i,
@@ -6,7 +8,6 @@ const headings = {
   certifications: /^(certifications|certificates|licenses and certifications)$/i,
   other: /^(summary|objective|profile|awards|interests|references|activities|publications|volunteering|leadership)$/i,
 };
-const knownSkills = ['JavaScript', 'TypeScript', 'React', 'Node.js', 'Python', 'Java', 'SQL', 'C++', 'C#', 'HTML', 'CSS', 'Git', 'AWS', 'Azure', 'Docker', 'PostgreSQL', 'MySQL', 'Snowflake', 'Power BI', 'Tableau', 'Excel', 'Alteryx', 'Spark', 'FastAPI', 'MongoDB'];
 
 export function parseResumeFields(text) {
   const lines = text.replace(/\r/g, '').split('\n').map(line => line.trim()).filter(Boolean);
@@ -18,7 +19,7 @@ export function parseResumeFields(text) {
     if (found) section = found;
     else sections[section].push(line);
   }
-  const skills = knownSkills.filter(skill => {
+  const skills = skillCatalog.filter(skill => {
     const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     return new RegExp(`(^|[^a-z0-9+#])${escaped}(?=$|[^a-z0-9+#])`, 'i').test(text);
   });

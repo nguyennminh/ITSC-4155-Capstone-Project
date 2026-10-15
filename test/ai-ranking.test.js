@@ -12,9 +12,39 @@ const jobs = normalizeJobs([row]);
 test('#55 Gemini accepts string IDs, sorts scores and rejects unknown IDs', async () => {
   const batch=[...jobs,{...jobs[0],id:'adzuna-2'}];
   const payload={matches:[{jobId:jobs[0].id,score:20,reasons:['Some relevance'],missing:[]},{jobId:'adzuna-2',score:90,reasons:['Strong relevance'],missing:[]}]};
-  const fetchImpl=async()=>({ok:true,json:async()=>({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(payload)}]}}]})});
+  let requestBody;
+  const fetchImpl=async(_url, options)=>{requestBody=JSON.parse(options.body);return {ok:true,json:async()=>({candidates:[{finishReason:'STOP',content:{parts:[{text:JSON.stringify(payload)}]}}]})};};
   const result=await matchJobs({skills:'React'},batch,{apiKey:'test',fetchImpl});assert.equal(result[0].jobId,'adzuna-2');
+  assert.equal(requestBody.generationConfig.responseMimeType, 'application/json');
+  assert.deepEqual(requestBody.generationConfig.responseSchema.required, ['matches']);
+  assert.equal(requestBody.generationConfig.responseSchema.type, 'OBJECT');
+  assert.equal(requestBody.generationConfig.responseSchema.properties.matches.type, 'ARRAY');
+  assert.equal(requestBody.generationConfig.responseFormat, undefined);
   payload.matches[0].jobId='invented';await assert.rejects(()=>matchJobs({},batch,{apiKey:'test',fetchImpl}),/invalid/);
+});
+
+test('#55 Gemini receives resume qualifications and job description for contextual reasons', async () => {
+  let requestBody;
+  const profile = { skills: 'Python, SQL', experience: 'Built a Python data pipeline with pandas.',
+    education: 'B.S. Data Science', certifications: 'AWS Certified Cloud Practitioner',
+    title: 'Data Engineer', location: 'Charlotte', mode: 'Hybrid', type: 'Full-time' };
+  const job = { id: 'context-job', title: 'Data Engineer', company: 'Example',
+    location: 'Charlotte', mode: 'Unknown', type: 'Full-time', skills: ['Python', 'SQL'],
+    description: 'Build and maintain Python data pipelines; optimize SQL warehouse queries.' };
+  const fetchImpl = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return { ok: true, json: async () => ({ candidates: [{ finishReason: 'STOP', content: {
+      parts: [{ text: JSON.stringify({ matches: [{ jobId: 'context-job', score: 91,
+        reasons: ['Your Python pipeline experience directly relates to building the pipelines in this role.',
+          'Your SQL background matches the posting requirement to optimize warehouse queries.'], missing: [] }] }) }],
+    } }] }) };
+  };
+  const result = await matchJobs(profile, [job], { apiKey: 'test-key', fetchImpl });
+  const sent = JSON.parse(requestBody.contents[0].parts[0].text);
+  assert.match(sent.profile.experience, /Built a Python data pipeline/);
+  assert.match(sent.jobs[0].description, /optimize SQL warehouse queries/);
+  assert.match(requestBody.systemInstruction.parts[0].text, /specific job responsibility or requirement/);
+  assert.equal(result[0].reasons.length, 2);
 });
 
 test('#55 rejects duplicate, incomplete and out-of-range AI results', async () => {
@@ -28,7 +58,7 @@ test('#55 rejects duplicate, incomplete and out-of-range AI results', async () =
 });
 
 test('#55 can rank a relevant job even without exact keyword overlap', async t => {
-  const batch = [{ ...jobs[0], id: 'semantic-job', skills: ['C++'] }];
+  const batch = [{ ...jobs[0], id: 'semantic-job', description: 'Build software with C++.', skills: ['C++'] }];
   const store = openStore(':memory:');
   const server = createApp({ store, jobProvider: { getJobs: async () => batch },
     explain: async () => [{ jobId: 'semantic-job', score: 82, reasons: ['Transferable programming experience'], missing: ['C++'] }]
@@ -53,4 +83,5 @@ test('#55 can rank a relevant job even without exact keyword overlap', async t =
   assert.equal(result.matches[0].score, 82);
   assert.deepEqual(result.matches[0].matched, []);
   assert.deepEqual(result.matches[0].missing, ['C++']);
+  assert.deepEqual(result.matches[0].aiReasons, ['Transferable programming experience']);
 });

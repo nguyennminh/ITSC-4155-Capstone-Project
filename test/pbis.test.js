@@ -50,6 +50,10 @@ test('#10 missing sections stay empty, never invented', async () => {
   assert.equal(fields.experience, ''); assert.equal(fields.education, ''); assert.equal(fields.certifications, '');
   assert.equal(fields.skills, 'Python, SQL');
 });
+test('#10 extracts common skills from resume text', () => {
+  const fields = parseResumeFields('Taylor Example\nTechnical Skills\nKubernetes, GraphQL, Pandas, Terraform');
+  assert.deepEqual(fields.skills.split(', '), ['GraphQL', 'Kubernetes', 'Terraform', 'Pandas']);
+});
 test('#10 invalid files produce clear errors', async () => {
   for (const file of [{ originalname: 'x.pdf', buffer: Buffer.from('not a PDF') }, { originalname: 'x.docx', buffer: Buffer.alloc(0) }]) {
     await assert.rejects(async () => extractText(file), /PDF|nonempty/);
@@ -81,6 +85,28 @@ test('#14 experience, education and certifications provide skill evidence', () =
   for (const field of ['experience', 'education', 'certifications']) {
     assert.equal(rankJobs({ [field]: 'SQL project' }, [{ id: 1, skills: ['SQL'] }])[0].score, 90);
   }
+});
+test('#14 one resume skill mentioned in an Adzuna listing is enough to match', () => {
+  const result = rankJobs({ skills: 'Kubernetes, Terraform' }, [
+    { id: 'adzuna-1', title: 'Platform Engineer', description: 'Support our Kubernetes clusters.', skills: [] },
+    { id: 'adzuna-2', title: 'Accountant', description: 'Prepare financial reports.', skills: [] },
+  ]);
+  assert.equal(result.length, 1);
+  assert.equal(result[0].jobId, 'adzuna-1');
+  assert.deepEqual(result[0].matched, ['kubernetes']);
+});
+test('#13 jobs endpoint searches with skills from the confirmed profile only', async t => {
+  let searchedSkills;
+  const app = await start(':memory:', {
+    jobProvider: { getJobs: async ({ skills } = {}) => { searchedSkills = skills; return jobs; } },
+  }); t.after(() => app.stop());
+  const call = client(app.base);
+  await register(call, 'jobs@example.com');
+  assert.deepEqual((await call('/api/jobs')).data.jobs, []);
+  assert.equal(searchedSkills, undefined);
+  await confirm(call, { ...profile, skills: 'Python, SQL' });
+  assert.equal((await call('/api/jobs')).data.jobs.length, jobs.length);
+  assert.equal(searchedSkills, 'Python, SQL');
 });
 test('#10 and #11 account isolation, authentication and confirmed-data ownership', async t => {
   const app = await start(); t.after(() => app.stop());
@@ -125,16 +151,21 @@ test('#10/#11 drafts and confirmed edits persist through logout and database res
   assert.equal((await call('/api/jobs/match', {})).data.matches[0].jobId, 2);
 });
 test('#14 matching ignores client qualifications, handles empty data and Gemini failure without modifying profiles', async t => {
-  const app = await start(':memory:', { explain: async () => { throw new Error('quota'); } }); t.after(() => app.stop());
+  let searchedSkills;
+  const app = await start(':memory:', {
+    explain: async () => { throw new Error('quota'); },
+    jobProvider: { getJobs: async ({ skills } = {}) => { searchedSkills = skills; return jobs; } },
+  }); t.after(() => app.stop());
   const call = client(app.base); await register(call, 'match@example.com');
   await confirm(call, { ...profile, skills: 'Python, SQL' });
   const before = (await call('/api/profile')).data.user.profile;
   const first = await call('/api/jobs/match', { profile: { skills: 'React' } });
   assert.equal(first.data.matches[0].jobId, 2);
+  assert.equal(searchedSkills, 'Python, SQL');
   const extra = await call('/api/jobs/match', { useAi: true });
   assert.deepEqual(extra.data.matches, first.data.matches); assert.match(extra.data.warning, /unavailable/);
   assert.deepEqual((await call('/api/profile')).data.user.profile, before);
   await confirm(call, { ...profile, skills: '', experience: '', education: '', certifications: '' });
   const empty = await call('/api/jobs/match', {});
-  assert.equal(empty.status, 200); assert.deepEqual(empty.data.matches, []); assert.match(empty.data.message, /No jobs/);
+  assert.equal(empty.status, 422); assert.match(empty.data.error, /Add skills from your resume or profile/);
 });
