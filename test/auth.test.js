@@ -140,3 +140,50 @@ test('authentication attempt limits leave session restoration and logout availab
   assert.equal((await request('/api/auth/logout', {}, registration.cookie)).status, 200);
   assert.equal((await request('/api/profile', undefined, registration.cookie)).status, 401);
 });
+
+test('registration rejects invalid fields and accepts password length boundaries', async t => {
+  const { request, store } = await start(t);
+  const invalid = [
+    {}, { ...account, name: undefined }, { ...account, name: '   ' },
+    { ...account, name: 'x'.repeat(101) }, { ...account, email: undefined },
+    { ...account, email: 'invalid-email' }, { ...account, email: `${'a'.repeat(250)}@example.com` },
+    { ...account, password: undefined }, { ...account, password: null },
+    { ...account, password: 'x'.repeat(9) }, { ...account, password: 'x'.repeat(129) },
+    { ...account, role: 'Administrator' },
+  ];
+  for (const body of invalid) {
+    const result = await request('/api/auth/register', body);
+    assert.equal(result.status, 400);
+    assert.match(result.data.error, /name, valid email, and a password of 10–128 characters/);
+    assert.equal(result.cookie, '');
+  }
+  assert.equal(store.user(1), undefined);
+  for (const length of [10, 128]) {
+    const result = await request('/api/auth/register', { ...account, email: `length-${length}@example.com`, password: 'x'.repeat(length) });
+    assert.equal(result.status, 201);
+    assert.equal((await request('/api/auth/login', { email: result.data.user.email, password: 'x'.repeat(length) })).status, 200);
+  }
+});
+
+test('login rejects invalid credentials uniformly and never issues a session on failure', async t => {
+  const { request } = await start(t);
+  await request('/api/auth/register', account);
+  for (const body of [
+    { email: account.email, password: 'incorrect-password' },
+    { email: 'unknown@example.com', password: account.password },
+  ]) {
+    const result = await request('/api/auth/login', body);
+    assert.equal(result.status, 401);
+    assert.deepEqual(result.data, { error: 'Incorrect email or password.' });
+    assert.equal(result.cookie, '');
+  }
+  for (const body of [{}, { email: 'invalid', password: account.password }, { email: account.email, password: 'short' }]) {
+    const result = await request('/api/auth/login', body);
+    assert.equal(result.status, 400);
+    assert.equal(result.cookie, '');
+  }
+  const login = await request('/api/auth/login', account);
+  assert.equal(login.status, 200);
+  assert.equal(login.data.user.email, account.email);
+  assert.equal((await request('/api/profile', undefined, login.cookie)).status, 200);
+});

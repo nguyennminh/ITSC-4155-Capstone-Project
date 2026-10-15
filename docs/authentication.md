@@ -42,3 +42,31 @@ form stay on that form.
 Run the relevant checks and make one local commit after each stage. Do not push.
 Preserve unrelated working-tree changes. Password reset, email verification,
 MFA, social login, and role-permission redesign are separate work.
+
+## Acceptance coverage and verification
+
+| Acceptance criterion | Coverage |
+| --- | --- |
+| Create an account with valid information | API validation and password boundaries; browser registration and onboarding |
+| Reject an email already in use | Normalized and simultaneous duplicate API requests; browser conflict and recovery |
+| Log in with valid credentials | API session issuance; browser reload, logout, and return to the same account |
+| Reject invalid credentials with an appropriate error | API uniform credential errors; browser errors, retries, and throttling feedback |
+| Never store plaintext passwords | Stored-hash verification, unique salt checks, password whitespace preservation, and public-response exclusions |
+| Log out successfully | Server revocation, cookie expiry, token replay rejection, repeated logout, and browser logout/retry |
+
+Verification on 2026-10-15:
+
+- `node --test test/auth.test.js test/auth-client.test.js`: all 11 tests pass.
+- Browser suite: all nine tests pass, including eight authentication scenarios
+  and the existing resume regression. The existing test now uses accessible
+  textbox names for populated textareas and waits for logout before filling
+  the login form. A temporary configuration selected the downloaded Chromium
+  executable because the local Playwright installer stalled during extraction;
+  application configuration and test-server behavior were unchanged.
+- `npm run build`: passes.
+- `npm test`: 25 tests pass; the existing AI-ranking test cannot load because
+  `server/services/jobProvider.js` is missing. Restoring that unrelated module
+  is outside this authentication change.
+
+For a standard browser setup, run `npx playwright install chromium`, then
+`npm run test:e2e`. Tests use temporary databases and fictional account data.
