@@ -14,11 +14,11 @@ test('#12 safe links reject scripts, relative URLs and embedded credentials', ()
   assert.equal(safeExternalUrl('https://example.org/jobs/1'),'https://example.org/jobs/1');
 });
 
-test('#12/#16/#55 authenticated application tracking and AI ranking/fallback', async t => {
+test('#12/#16/#55 authenticated application tracking and Gemini ranking/failure handling', async t => {
   const store=openStore(':memory:');
   let fail=false;
   const server=createApp({store,jobProvider:{getJobs:async()=>jobs},explain:async()=>{
-    if(fail) throw new Error('quota');return [{jobId:jobs[0].id,score:88,reasons:['Relevant React experience'],missing:[]}];
+    if(fail) throw new Error('quota');return [{jobId:jobs[0].id,score:88,reasons:['Relevant React experience'],matched:['React'],missing:['SQL']}];
   }}).listen(0,'127.0.0.1');await once(server,'listening');
   t.after(async()=>{server.closeAllConnections();await new Promise(r=>server.close(r));store.close();});
   const base=`http://127.0.0.1:${server.address().port}`;
@@ -30,9 +30,10 @@ test('#12/#16/#55 authenticated application tracking and AI ranking/fallback', a
   await a('/api/auth/register',{name:'Alex',email:'a@example.org',password:'long-password-123'});
   await b('/api/auth/register',{name:'Sam',email:'b@example.org',password:'long-password-123'});
   await a('/api/profile/confirm',{confirmed:true,profile:{...emptyProfile,name:'Alex',email:'a@example.org',skills:'React'}});
-  const ai=await a('/api/jobs/match',{useAi:true});assert.equal(ai.data.source,'gemini');assert.equal(ai.data.matches[0].score,88);
-  assert.deepEqual(ai.data.matches[0].matched,['react']);assert.deepEqual(ai.data.matches[0].missing,['sql']);
-  fail=true;const fallback=await a('/api/jobs/match',{useAi:true});assert.equal(fallback.data.source,'deterministic');assert.ok(fallback.data.warning);
+  const noConsent=await a('/api/jobs/match',{consent:false});assert.equal(noConsent.status,400);
+  const ai=await a('/api/jobs/match',{consent:true});assert.equal(ai.data.source,'gemini');assert.equal(ai.data.matches[0].score,88);
+  assert.deepEqual(ai.data.matches[0].matched,['React']);assert.deepEqual(ai.data.matches[0].missing,['SQL']);
+  fail=true;const failure=await a('/api/jobs/match',{consent:true});assert.equal(failure.status,502);assert.match(failure.data.error,/Gemini matching failed/);
   assert.equal((await a('/api/applications/start',{jobId:'missing'})).status,404);
   await a('/api/applications/start',{jobId:jobs[0].id});await a('/api/applications/start',{jobId:jobs[0].id});
   assert.equal((await a('/api/applications')).data.applications.length,1);assert.equal((await b('/api/applications')).data.applications.length,0);

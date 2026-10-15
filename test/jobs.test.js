@@ -31,7 +31,7 @@ test('uses a supported Gemini default model when no override is configured', asy
       json: async () => ({
         candidates: [{
           finishReason: 'STOP',
-          content: { parts: [{ text: JSON.stringify({ matches: [{ jobId: 1, score: 100, reasons: ['Strong match'], missing: [] }] }) }] }
+          content: { parts: [{ text: JSON.stringify({ matches: [{ jobId: 1, score: 100, reasons: ['Strong match'], matched: ['Python'], missing: [] }] }) }] }
         }]
       })
     };
@@ -50,4 +50,3 @@ test('uses a supported Gemini default model when no override is configured', asy
 
   assert.match(seenUrl, /gemini-3\.5-flash-lite/);
 });
-

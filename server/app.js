@@ -7,7 +7,6 @@ import { safeExternalUrl } from '../src/services/linkService.js';
 import { extractText } from './services/extractText.js';
 import { parseResumeFields } from './services/resumeFields.js';
 import { ApiError, matchJobs } from './services/aiMatcher.js';
-import { rankJobs } from './services/matching.js';
 import { openStore, publicUser } from './store.js';
 import { hashPassword, verifyPassword, sessionHash, issueSession, clearSession } from './auth.js';
 
@@ -113,37 +112,30 @@ export function createApp({ store = openStore(), extract = extractText, explain 
   });
   app.post('/api/jobs/match', async (req, res) => {
     if (!req.user.confirmed) throw new ApiError(409, 'Confirm your profile before matching jobs.');
-    const request = z.object({ useAi: z.boolean().default(false) }).safeParse(req.body || {});
-    if (!request.success) throw new ApiError(400, 'Invalid matching request.');
+    const request = z.object({ consent: z.literal(true) }).safeParse(req.body || {});
+    if (!request.success) throw new ApiError(400, 'Consent to send your qualification fields and job descriptions to Gemini before matching.');
     const profile = JSON.parse(req.user.profile_json);
     if (!profile.skills.trim()) throw new ApiError(422, 'Add skills from your resume or profile before matching jobs.');
     const jobs = await jobProvider.getJobs({ skills: profile.skills });
-    let matches = rankJobs(profile, jobs);
-    let source = 'deterministic';
-    let warning = '';
-    if (request.data.useAi && jobs.length) {
+    const eligible = jobs.filter(job => (profile.mode === 'Any' || !profile.mode || job.mode === profile.mode)
+      && (profile.type === 'Any' || !profile.type || job.type === profile.type));
+    let matches = [];
+    if (eligible.length) {
       try {
         const { skills, experience, education, certifications, title, location, mode, type } = profile;
-        // Evaluate the whole bounded batch, including jobs with no exact keyword overlap.
-        const eligible = jobs.filter(job => (profile.mode === 'Any' || !profile.mode || job.mode === profile.mode)
-          && (profile.type === 'Any' || !profile.type || job.type === profile.type));
-        const results = await explain({ skills, experience, education, certifications, title, location, mode, type }, eligible);
-        const evidence = rankJobs(profile, eligible);
-        matches = results.filter(item => item.score > 0).map(item => ({ ...item,
-          matched: evidence.find(row => row.jobId === item.jobId)?.matched || [],
-          missing: evidence.find(row => row.jobId === item.jobId)?.missing || eligible.find(job => job.id === item.jobId)?.skills || [],
-          aiReasons: item.reasons,
-          reasons: evidence.find(row => row.jobId === item.jobId)?.reasons || ['No exact skill overlap was detected; review the AI assessment against the posting.']
-        }));
-        source = 'gemini';
+        matches = (await explain({ skills, experience, education, certifications, title, location, mode, type }, eligible))
+          .filter(item => item.score > 0)
+          .map(item => ({ ...item, aiReasons: item.reasons, reasons: item.reasons }));
       } catch (error) {
-        console.warn('[AI matching]', error instanceof ApiError ? error.message : 'Unexpected response processing error');
-        warning = 'AI matching is unavailable. Keyword fallback results are shown.';
+        if (error instanceof ApiError) throw error;
+        console.warn('[Gemini matching] Unexpected error while matching jobs.');
+        throw new ApiError(502, 'Gemini matching failed. Please retry.');
       }
     }
 
-    res.json({ jobs, matches, warning, source, sampleJobs: false,
-      message: matches.length ? '' : 'No jobs match your confirmed qualifications and preferences. Update your profile or broaden your preferences.' });
+    res.json({ jobs, matches, source: 'gemini', sampleJobs: false,
+      message: matches.length ? '' : eligible.length ? 'Gemini found no relevant matches for these listings.'
+        : 'No jobs match your work arrangement and employment type preferences.' });
   });
   app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
   app.use((error, req, res, next) => {

@@ -38,10 +38,9 @@ export default function App() {
   const [applications, setApplications] = useState([]);
 
   const [recommendations, setRecommendations] = useState([]);
-  const [matchSource, setMatchSource] = useState('deterministic');
   const [detail, setDetail] = useState(null);
   const detailTrigger = useRef(null);
-  function receiveMatches(result) { setJobs(result.jobs); setRecommendations(result.matches); setMatchSource(result.source); }
+  function receiveMatches(result) { setJobs(result.jobs); setRecommendations(result.matches); }
   function openDetails(job, recommendation) {
     detailTrigger.current = document.activeElement;
     setDetail({ job, recommendation });
@@ -111,7 +110,6 @@ export default function App() {
     setProfile(user.profile);
     setProfileConfirmed(user.confirmed);
     setRecommendations([]);
-    setMatchSource('deterministic');
     setDetail(null);
     if (updatedProfile.skills.trim()) await loadJobs();
     else { setJobs([]); setLoading(false); setError(""); }
@@ -188,7 +186,7 @@ export default function App() {
         logoutBusy={logoutBusy}
       />
 
-      {detail && <JobDetails {...detail} source={matchSource} onClose={closeDetails} onStart={apply}/>}
+      {detail && <JobDetails {...detail} onClose={closeDetails} onStart={apply}/>}
       <div className="container" inert={detail ? true : undefined}>
         <p className="demo-label"><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> ·
           Confirmed profiles and application tracking are saved
@@ -243,7 +241,6 @@ export default function App() {
             onSave={saveJob}
             onApply={apply}
             onDetails={openDetails}
-            source={matchSource}
             recommendations={recommendations}
             onResults={receiveMatches}
           />
@@ -257,7 +254,6 @@ export default function App() {
             onRemove={removeSavedJob}
             onApply={apply}
             onDetails={openDetails}
-            source={matchSource}
             recommendations={recommendations}
             onResults={receiveMatches}
           />

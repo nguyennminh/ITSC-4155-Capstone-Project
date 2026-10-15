@@ -8,7 +8,7 @@ import { createApp } from '../server/app.js';
 import { openStore } from '../server/store.js';
 import { extractText } from '../server/services/extractText.js';
 import { parseResumeFields } from '../server/services/resumeFields.js';
-import { rankJobs } from '../server/services/matching.js';
+import { qualificationText } from '../server/services/matching.js';
 import { jobs } from '../src/data/mockData.js';
 import { emptyProfile } from '../src/data/mockData.js';
 
@@ -59,41 +59,13 @@ test('#10 invalid files produce clear errors', async () => {
     await assert.rejects(async () => extractText(file), /PDF|nonempty/);
   }
 });
-test('#14 repeatable ranking, stronger matches first, no input mutation', () => {
-  const jobs = [
-    { id: 1, title: 'Developer', location: 'Raleigh', skills: ['React', 'SQL'] },
-    { id: 2, title: 'Developer', location: 'Charlotte', skills: ['React', 'SQL', 'AWS', 'Docker'] },
-  ];
-  const original = JSON.stringify({ profile, jobs });
-  const result = rankJobs(profile, jobs);
-  assert.equal(result[0].jobId, 1); assert.ok(result[0].score > result[1].score);
-  assert.deepEqual(rankJobs(profile, jobs), result);
-  assert.equal(JSON.stringify({ profile, jobs }), original);
-});
-test('#14 preferences affect rank and filters; missing qualifications produce no matches', () => {
-  const jobs = [
-    { id: 1, title: 'Engineer', location: 'Raleigh', mode: 'Remote', type: 'Full-time', skills: ['SQL'] },
-    { id: 2, title: 'Developer', location: 'Charlotte', mode: 'On-site', type: 'Internship', skills: ['SQL'] },
-  ];
-  assert.equal(rankJobs({ ...profile, location: 'Charlotte', title: 'Developer' }, jobs)[0].jobId, 2);
-  assert.deepEqual(rankJobs({ ...profile, mode: 'Remote' }, jobs).map(v => v.jobId), [1]);
-  assert.deepEqual(rankJobs({ ...profile, type: 'Internship' }, jobs).map(v => v.jobId), [2]);
-  assert.deepEqual(rankJobs({}, jobs), []);
-  assert.deepEqual(rankJobs({ skills: 'JavaScript' }, [{ id: 1, skills: ['Java'] }]), []);
-});
-test('#14 experience, education and certifications provide skill evidence', () => {
-  for (const field of ['experience', 'education', 'certifications']) {
-    assert.equal(rankJobs({ [field]: 'SQL project' }, [{ id: 1, skills: ['SQL'] }])[0].score, 90);
-  }
-});
-test('#14 one resume skill mentioned in an Adzuna listing is enough to match', () => {
-  const result = rankJobs({ skills: 'Kubernetes, Terraform' }, [
-    { id: 'adzuna-1', title: 'Platform Engineer', description: 'Support our Kubernetes clusters.', skills: [] },
-    { id: 'adzuna-2', title: 'Accountant', description: 'Prepare financial reports.', skills: [] },
-  ]);
-  assert.equal(result.length, 1);
-  assert.equal(result[0].jobId, 'adzuna-1');
-  assert.deepEqual(result[0].matched, ['kubernetes']);
+test('#14 only qualification fields are read when preparing Gemini context', () => {
+  assert.equal(qualificationText({
+    arbitrary: 'Ignored metadata',
+  }), '');
+  assert.equal(qualificationText({
+    title: 'Data intern', description: 'Built SQL reports', skills: ['SQL', 'Python'],
+  }), 'Data intern\nBuilt SQL reports\nSQL\nPython');
 });
 test('#13 jobs endpoint searches with skills from the confirmed profile only', async t => {
   let searchedSkills;
@@ -148,7 +120,8 @@ test('#10/#11 drafts and confirmed edits persist through logout and database res
   assert.equal((await call('/api/auth/login', { email: 'return@example.com', password: 'wrong-password-123' })).status, 401);
   await call('/api/auth/login', { email: 'return@example.com', password });
   assert.deepEqual((await call('/api/profile')).data.user.profile, edited);
-  assert.equal((await call('/api/jobs/match', {})).data.matches[0].jobId, 2);
+  const noConsent = await call('/api/jobs/match', {});
+  assert.equal(noConsent.status, 400);
 });
 test('#14 matching ignores client qualifications, handles empty data and Gemini failure without modifying profiles', async t => {
   let searchedSkills;
@@ -159,13 +132,13 @@ test('#14 matching ignores client qualifications, handles empty data and Gemini 
   const call = client(app.base); await register(call, 'match@example.com');
   await confirm(call, { ...profile, skills: 'Python, SQL' });
   const before = (await call('/api/profile')).data.user.profile;
-  const first = await call('/api/jobs/match', { profile: { skills: 'React' } });
-  assert.equal(first.data.matches[0].jobId, 2);
+  const first = await call('/api/jobs/match', { consent: false, profile: { skills: 'React' } });
+  assert.equal(first.status, 400);
+  const extra = await call('/api/jobs/match', { consent: true });
+  assert.equal(extra.status, 502); assert.match(extra.data.error, /Gemini matching failed/);
   assert.equal(searchedSkills, 'Python, SQL');
-  const extra = await call('/api/jobs/match', { useAi: true });
-  assert.deepEqual(extra.data.matches, first.data.matches); assert.match(extra.data.warning, /unavailable/);
   assert.deepEqual((await call('/api/profile')).data.user.profile, before);
   await confirm(call, { ...profile, skills: '', experience: '', education: '', certifications: '' });
-  const empty = await call('/api/jobs/match', {});
+  const empty = await call('/api/jobs/match', { consent: true });
   assert.equal(empty.status, 422); assert.match(empty.data.error, /Add skills from your resume or profile/);
 });

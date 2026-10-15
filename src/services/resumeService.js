@@ -28,8 +28,8 @@ export async function parseResume(file, signal) {
   form.append('resume', file);
   return api('/api/resumes/parse', { method: 'POST', body: form, signal });
 }
-export function getMatches(useAi, signal) {
+export function getMatches(consent, signal) {
   // Qualifications come from the server's saved confirmed profile, not browser claims.
   return api('/api/jobs/match', { method: 'POST', signal,
-    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ useAi }) });
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ consent }) });
 }

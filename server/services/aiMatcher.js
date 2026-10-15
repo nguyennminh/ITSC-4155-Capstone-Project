@@ -27,6 +27,7 @@ const resultSchema = z.object({
     jobId: z.union([z.string().trim().min(1).max(200), z.number().int().safe()]),
     score: z.number().int().min(0).max(100),
     reasons: z.array(z.string().trim().min(1).max(800)).min(1).max(5),
+    matched: z.array(z.string().trim().min(1).max(300)).max(10),
     missing: z.array(z.string().trim().min(1).max(300)).max(10),
   }).strict()).max(20),
 }).strict();
@@ -36,11 +37,12 @@ const outputSchema = {
   properties: {
     matches: { type: 'ARRAY', items: {
       type: 'OBJECT',
-      required: ['jobId', 'score', 'reasons', 'missing'],
+      required: ['jobId', 'score', 'reasons', 'matched', 'missing'],
       properties: {
         jobId: { type: 'STRING' },
         score: { type: 'INTEGER' },
         reasons: { type: 'ARRAY', items: { type: 'STRING' } },
+        matched: { type: 'ARRAY', items: { type: 'STRING' } },
         missing: { type: 'ARRAY', items: { type: 'STRING' } },
       },
     } },
@@ -57,7 +59,7 @@ function jobIdMap(jobs) {
     const valid = (typeof id === 'string' && id.trim() === id && id.length > 0 && id.length <= 200)
       || (typeof id === 'number' && Number.isSafeInteger(id));
     if (!valid || ids.has(String(id))) {
-      throw new ApiError(400, 'Jobs must have unique, valid IDs before AI matching.');
+      throw new ApiError(400, 'Jobs must have unique, valid IDs before Gemini matching.');
     }
     ids.set(String(id), id);
   }
@@ -68,20 +70,21 @@ export function validateMatches(value, jobs) {
   const ids = jobIdMap(jobs);
   const parsed = resultSchema.safeParse(value);
   if (!parsed.success || parsed.data.matches.length !== ids.size) {
-    throw new ApiError(502, 'AI returned invalid job matches. Please retry.');
+    throw new ApiError(502, 'Gemini returned invalid job matches. Please retry.');
   }
 
   const seen = new Set();
   const matches = parsed.data.matches.map(item => {
     const key = String(item.jobId);
     if (!ids.has(key) || seen.has(key)) {
-      throw new ApiError(502, 'AI returned invalid job matches. Please retry.');
+      throw new ApiError(502, 'Gemini returned invalid job matches. Please retry.');
     }
     seen.add(key);
     return {
       ...item,
       jobId: ids.get(key), // Translate wire-format strings back to the supplied ID type.
       reasons: [...new Set(item.reasons)],
+      matched: [...new Set(item.matched)],
       missing: [...new Set(item.missing)],
     };
   });
@@ -132,7 +135,8 @@ describe that connection using only supplied evidence. If there is no clear
 connection, say so rather than inventing one. Transferable experience can count
 when the evidence supports it, even when keywords differ.
 Compare candidates only with the supplied requirements, never personal identity
-or protected characteristics. Give 1-5 concise reasons citing supplied evidence
+or protected characteristics. Give 1-5 concise reasons citing supplied evidence,
+up to 10 candidate skills or qualifications that are evidenced as matching the job,
 and at most 10 job requirements not evidenced in the profile. Include at least
 one reason explaining the strongest evidence for the fit (or the lack of it).
 An excerpt is incomplete:
@@ -153,15 +157,15 @@ export async function matchJobs(profile, jobs, {
   }
   const key = typeof apiKey === 'string' ? apiKey.trim() : '';
   const modelId = typeof model === 'string' ? model.trim() : '';
-  if (!key) throw new ApiError(503, 'AI matching is not configured. Add GEMINI_API_KEY to the server .env file and restart it.');
+  if (!key) throw new ApiError(503, 'Gemini matching is not configured. Add GEMINI_API_KEY to the server .env file and restart it.');
   if (!/^[a-zA-Z0-9._-]+$/.test(modelId)) throw new ApiError(503, 'Set GEMINI_MODEL to a valid model ID.');
   if (!Number.isInteger(timeoutMs) || timeoutMs < 1 || timeoutMs > 60000) {
-    throw new ApiError(400, 'AI timeout must be between 1 and 60000 milliseconds.');
+    throw new ApiError(400, 'Gemini timeout must be between 1 and 60000 milliseconds.');
   }
 
   const timeout = AbortSignal.timeout(timeoutMs);
   const requestSignal = signal ? AbortSignal.any([signal, timeout]) : timeout;
-  if (signal?.aborted) throw new ApiError(499, 'AI matching was canceled.');
+  if (signal?.aborted) throw new ApiError(499, 'Gemini matching was canceled.');
 
   let response;
   try {
@@ -180,7 +184,7 @@ export async function matchJobs(profile, jobs, {
       }),
     });
   } catch {
-    if (signal?.aborted) throw new ApiError(499, 'AI matching was canceled.');
+    if (signal?.aborted) throw new ApiError(499, 'Gemini matching was canceled.');
     if (timeout.aborted) throw new ApiError(504, 'Gemini timed out. Please retry.');
     throw new ApiError(502, 'Could not connect to Gemini. Check your connection and retry.');
   }
@@ -195,7 +199,7 @@ export async function matchJobs(profile, jobs, {
     const data = await response.json();
     const candidate = data.candidates?.[0];
     if (data.promptFeedback?.blockReason || candidate?.finishReason !== 'STOP') {
-      throw new ApiError(502, 'Gemini returned a blocked or incomplete result. Keyword fallback can be used.');
+      throw new ApiError(502, 'Gemini returned a blocked or incomplete result. Please retry.');
     }
     const output = (candidate.content?.parts || [])
       .filter(part => !part.thought && typeof part.text === 'string')
