@@ -24,13 +24,15 @@ async function start(filename = ':memory:', options = {}) {
 }
 function client(base) {
   let cookie = '';
-  return async (path, body, method = body === undefined ? 'GET' : 'POST') => {
+  const call = async (path, body, method = body === undefined ? 'GET' : 'POST') => {
     const headers = { Cookie: cookie };
     if (body !== undefined && !(body instanceof FormData)) headers['Content-Type'] = 'application/json';
     const result = await fetch(base + path, { method, headers, body: body === undefined ? undefined : body instanceof FormData ? body : JSON.stringify(body) });
     if (result.headers.get('set-cookie')) cookie = result.headers.get('set-cookie').split(';')[0];
     return { status: result.status, data: await result.json(), cookie: result.headers.get('set-cookie') };
   };
+  call.sessionCookie = () => cookie;
+  return call;
 }
 async function register(call, email) { return call('/api/auth/register', { email, name: 'Alex', password }); }
 async function confirm(call, value = profile) { return call('/api/profile/confirm', { confirmed: true, profile: value }); }
@@ -91,12 +93,23 @@ test('#10 and #11 account isolation, authentication and confirmed-data ownership
   const parsed = await upload(alice);
   assert.equal(parsed.status, 200); assert.match(parsed.data.fields.skills, /Python/);
   assert.equal((await bob('/api/resumes/latest')).data.draft, null);
+  assert.equal((await bob('/api/resumes')).data.resume, null);
+  const fileResponse = await fetch(`${app.base}/api/resumes/file`, { headers: { Cookie: registration.cookie.split(';')[0] } });
+  assert.equal(fileResponse.status, 200);
+  assert.match(fileResponse.headers.get('content-disposition'), /attachment/);
+  assert.deepEqual(Buffer.from(await fileResponse.arrayBuffer()), await fixture('resume.docx'));
+  assert.equal((await bob('/api/resumes/file')).status, 404);
   assert.equal((await alice('/api/profile')).data.user.confirmed, false);
   await alice('/api/profile/confirm', { confirmed: true, userId: 2, profile: { ...profile, userId: 2 } });
   assert.equal((await bob('/api/profile')).data.user.confirmed, false);
   assert.equal((await bob('/api/profile')).data.user.profile.skills, '');
   assert.equal((await alice('/api/profile')).data.user.profile.userId, undefined);
   assert.equal((await alice('/api/resumes/latest')).data.draft, null);
+  assert.equal((await alice('/api/resumes')).data.resume.name, 'resume.docx');
+  const removed = await alice('/api/resumes/file', undefined, 'DELETE');
+  assert.equal(removed.data.resume, null);
+  assert.equal(removed.data.user.profile.resumeName, '');
+  assert.equal((await alice('/api/resumes')).data.resume, null);
   const bad = new FormData(); bad.append('resume', new Blob(['wrong']), 'bad.pdf');
   assert.equal((await alice('/api/resumes/parse', bad)).status, 422);
   assert.equal((await alice('/api/profile')).data.user.profile.skills, profile.skills);
@@ -110,6 +123,10 @@ test('#10/#11 drafts and confirmed edits persist through logout and database res
   app = await start(file); call = client(app.base);
   await call('/api/auth/login', { email: 'return@example.com', password });
   assert.equal((await call('/api/resumes/latest')).data.draft.resumeName, 'resume.docx');
+  assert.equal((await call('/api/resumes')).data.resume.name, 'resume.docx');
+  const fileResponse = await fetch(`${app.base}/api/resumes/file`, { headers: { Cookie: call.sessionCookie() } });
+  assert.equal(fileResponse.status, 200);
+  assert.deepEqual(Buffer.from(await fileResponse.arrayBuffer()), await fixture('resume.docx'));
   // Add skills, correct education, and remove experience/certifications.
   const edited = { ...profile, skills: 'Python, SQL', education: 'Corrected university', experience: '', certifications: '', resumeName: 'resume.docx' };
   assert.equal((await confirm(call, edited)).status, 200);

@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024;
 
-export default function ResumeUpload({ resume, onResumeChange }) {
+export default function ResumeUpload({ resume, savedResume, onResumeChange, onRemoveSaved }) {
   const [error, setError] = useState("");
   const inputRef = useRef(null);
 
@@ -46,7 +46,7 @@ export default function ResumeUpload({ resume, onResumeChange }) {
 
       <p id="resume-help">
         Select a PDF or DOCX file, up to 10 MB.
-        This demo keeps the file only until the page refreshes.
+        Uploaded resumes are saved privately to your account.
       </p>
 
       <input
@@ -76,13 +76,21 @@ export default function ResumeUpload({ resume, onResumeChange }) {
             Remove resume
           </button>
         )}
+        {savedResume && (
+          <div className="resume-details" role="status">
+            <strong>{savedResume.name}</strong>
+            <span>{(savedResume.size / 1024).toFixed(1)} KB · Saved to your account</span>
+            <a href="/api/resumes/file">Download saved resume</a>
+            <button type="button" className="secondary-button" onClick={onRemoveSaved}>Delete saved resume</button>
+          </div>
+        )}
       </div>
 
       {resume && (
         <div className="resume-details" role="status">
           <strong>{resume.name}</strong>
           <span>{(resume.size / 1024).toFixed(1)} KB</span>
-          <p>Selected locally. Not uploaded to a server.</p>
+          <p>Selected on this device. It will be saved to your account when parsed.</p>
         </div>
       )}
 

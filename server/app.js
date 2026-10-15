@@ -116,6 +116,31 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     res.json({ user: publicUser(await store.user(req.user.id)) });
   });
   app.get('/api/resumes/latest', async (req, res) => res.json({ draft: await store.draft(req.user.id) }));
+  app.get('/api/resumes', async (req, res) => {
+    const resume = await store.resume(req.user.id);
+    res.json({ resume: resume ? { name: resume.name, size: resume.buffer.length, savedAt: resume.savedAt } : null });
+  });
+  app.get('/api/resumes/file', async (req, res) => {
+    const resume = await store.resume(req.user.id);
+    if (!resume) throw new ApiError(404, 'No uploaded resume is saved to your account.');
+    const extension = resume.name.toLowerCase().endsWith('.pdf') ? 'pdf' : 'docx';
+    const contentType = extension === 'pdf'
+      ? 'application/pdf'
+      : 'application/vnd.openxmlformats-officedocument.wordprocessingml.document';
+    const filename = resume.name.replace(/[\r\n"]/g, '_');
+    res.set({
+      'Content-Type': contentType,
+      'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(filename)}`,
+      'Content-Length': resume.buffer.length,
+      'X-Content-Type-Options': 'nosniff',
+      'Cache-Control': 'no-store',
+    });
+    res.send(resume.buffer);
+  });
+  app.delete('/api/resumes/file', async (req, res) => {
+    await store.deleteResume(req.user.id);
+    res.json({ resume: null, user: publicUser(await store.user(req.user.id)) });
+  });
   app.get('/api/saved-jobs', async (req, res) => res.json({ savedJobs: await store.savedJobs(req.user.id) }));
   app.post('/api/saved-jobs', async (req, res) => {
     const parsed = z.object({ jobId: z.string().min(1).max(200) }).safeParse(req.body);
@@ -137,6 +162,7 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     catch (error) { throw new ApiError(422, error.message); }
     const result = { fields: parseResumeFields(rawText), rawText, resumeName: req.file.originalname,
       warnings: ['Review all extracted fields. Skills and section headings may be missed; this parser is rule-based.'] };
+    await store.saveResume(req.user.id, req.file);
     await store.saveDraft(req.user.id, result);
     res.json(result);
   });

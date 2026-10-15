@@ -31,6 +31,11 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
     CREATE TABLE IF NOT EXISTS resume_drafts (
       user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
       result_json TEXT NOT NULL
+    );
+    CREATE TABLE IF NOT EXISTS resumes (
+      user_id INTEGER PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE,
+      original_name TEXT NOT NULL, content_type TEXT NOT NULL, data BLOB NOT NULL,
+      saved_at TEXT NOT NULL
     );`);
   return {
     close: () => db.close(),
@@ -79,6 +84,21 @@ export function openStore(filename = process.env.DB_PATH || 'server/data/jobswip
       return row ? JSON.parse(row.result_json) : null;
     },
     deleteDraft(id) { db.prepare('DELETE FROM resume_drafts WHERE user_id = ?').run(id); },
+    saveResume(id, resume) {
+      db.prepare(`INSERT INTO resumes VALUES(?,?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET
+        original_name=excluded.original_name,content_type=excluded.content_type,data=excluded.data,saved_at=excluded.saved_at`)
+        .run(id, resume.originalname, resume.mimetype, resume.buffer, new Date().toISOString());
+    },
+    resume(id) {
+      const row = db.prepare('SELECT * FROM resumes WHERE user_id = ?').get(id);
+      return row ? { name: row.original_name, contentType: row.content_type, buffer: row.data, savedAt: row.saved_at } : null;
+    },
+    deleteResume(id) {
+      db.prepare('DELETE FROM resumes WHERE user_id = ?').run(id);
+      const row = db.prepare('SELECT profile_json FROM users WHERE id = ?').get(id);
+      if (row) db.prepare('UPDATE users SET profile_json = ? WHERE id = ?')
+        .run(JSON.stringify({ ...JSON.parse(row.profile_json), resumeName: '' }), id);
+    },
     addSession(hash, id, expires) {
       db.prepare('DELETE FROM sessions WHERE expires_at <= ?').run(Date.now());
       db.prepare('INSERT INTO sessions VALUES(?,?,?)').run(hash, id, expires);
@@ -101,6 +121,7 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
   const savedJobs = db.collection('saved_jobs');
   const sessions = db.collection('sessions');
   const drafts = db.collection('resume_drafts');
+  const resumes = db.collection('resumes');
 
   try {
     await Promise.all([
@@ -110,6 +131,7 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
       sessions.createIndex({ token_hash: 1 }, { unique: true }),
       sessions.createIndex({ expires_at: 1 }, { expireAfterSeconds: 0 }),
       drafts.createIndex({ user_id: 1 }, { unique: true }),
+      resumes.createIndex({ user_id: 1 }, { unique: true }),
     ]);
   } catch (error) {
     await client.close();
@@ -176,6 +198,26 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
       return row ? JSON.parse(row.result_json) : null;
     },
     async deleteDraft(id) { await drafts.deleteOne({ user_id: id }); },
+    async saveResume(id, resume) {
+      await resumes.updateOne(
+        { user_id: id },
+        { $set: { original_name: resume.originalname, content_type: resume.mimetype, data: resume.buffer, saved_at: new Date().toISOString() } },
+        { upsert: true },
+      );
+    },
+    async resume(id) {
+      const row = await resumes.findOne({ user_id: id });
+      const buffer = row && (Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data.value(true)));
+      return row ? { name: row.original_name, contentType: row.content_type, buffer, savedAt: row.saved_at } : null;
+    },
+    async deleteResume(id) {
+      await resumes.deleteOne({ user_id: id });
+      const user = await users.findOne({ _id: id }, { projection: { profile_json: 1 } });
+      if (user) {
+        const profile = JSON.parse(user.profile_json);
+        await users.updateOne({ _id: id }, { $set: { profile_json: JSON.stringify({ ...profile, resumeName: '' }) } });
+      }
+    },
     async addSession(hash, id, expires) {
       await sessions.deleteMany({ expires_at: { $lte: new Date() } });
       await sessions.insertOne({ token_hash: hash, user_id: id, expires_at: new Date(expires) });
