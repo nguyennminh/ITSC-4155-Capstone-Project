@@ -49,15 +49,15 @@ export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel, o
     } finally {
       if (controller.current === request) setLoading(false);
     }
-    async function removeSaved() {
-      setError('');
-      try {
-        const { user } = await deleteSavedResume();
-        setSavedResume(null);
-        onSavedResumeRemoved?.(user.profile);
-      } catch (err) {
-        setError(err.message);
-      }
+  }
+  async function removeSaved() {
+    setError('');
+    try {
+      const { user } = await deleteSavedResume();
+      setSavedResume(null);
+      onSavedResumeRemoved?.(user.profile);
+    } catch (err) {
+      setError(err.message);
     }
   }
   if (result) return <ReviewResume
