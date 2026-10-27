@@ -9,6 +9,7 @@ import { parseResumeFields } from './services/resumeFields.js';
 import { ApiError, matchJobs } from './services/aiMatcher.js';
 import { openStore, publicUser } from './store.js';
 import { hashPassword, verifyPassword, sessionHash, issueSession, clearSession } from './auth.js';
+import { getResumeSuggestions } from './services/resumeSuggestions.js';
 import { installGoogleAuth } from './googleAuth.js';
 
 const loginSchema = z.object({ email: z.string().trim().email().max(254).transform(v => v.toLowerCase()), password: z.string().min(10).max(128) });
@@ -25,7 +26,7 @@ const profileSchema = z.object({
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
 });
-export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider(), googleClientId, verifyGoogle } = {}) {
+export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions } = {}) {
   const store = new Proxy(providedStore, {
     get(target, property, receiver) {
       const method = Reflect.get(target, property, receiver);
@@ -200,6 +201,14 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     await store.saveResume(req.user.id, req.file);
     await store.saveDraft(req.user.id, result);
     res.json(result);
+  });
+  const feedbackLimit = rateLimit({ windowMs:60000, limit:5, message:{error:'Too many feedback requests. Wait a minute.'} });
+  app.post('/api/resumes/suggestions', feedbackLimit, async (req, res) => {
+    if (!z.object({consent:z.literal(true)}).safeParse(req.body).success) throw new ApiError(400, 'Consent to Gemini processing before requesting feedback.');
+    if (!await store.resume(req.user.id)) throw new ApiError(422, 'Upload and parse a resume before requesting feedback.');
+    const draft = await store.draft(req.user.id);
+    const profile = { ...JSON.parse(req.user.profile_json), ...(draft?.fields || {}) };
+    res.json(await suggestResume(profile));
   });
   app.post('/api/jobs/match', async (req, res) => {
     if (!req.user.confirmed) throw new ApiError(409, 'Confirm your profile before matching jobs.');

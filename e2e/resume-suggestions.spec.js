@@ -1,0 +1,27 @@
+import { test, expect } from '@playwright/test';
+test('feedback requires consent and an accepted edit must be confirmed before saving',async ({page})=>{
+  await page.goto('/');
+  const email=`feedback-${Date.now()}@example.org`;
+  await page.request.post('/api/auth/register',{data:{name:'Feedback Tester',email,password:'feedback-test-password'}});
+  await page.reload();
+  await page.getByLabel('Select your resume').setInputFiles('test/fixtures/resume.docx');
+  await page.getByRole('button',{name:'Parse resume',exact:true}).click();
+  const skills=page.getByLabel('Skills (comma-separated)');
+  const before=await skills.inputValue();
+  await page.route('**/api/resumes/suggestions',route=>route.fulfill({json:{findings:[{category:'formatting',message:'Keep bullet punctuation consistent.'}],suggestions:[{target:'skills',before,after:before.split(', ').join('; '),category:'structure',reason:'Use consistent separators.'}]}}));
+  const feedback=page.getByRole('region',{name:'AI resume suggestions'});
+  await expect(feedback.getByRole('button',{name:'Get AI resume suggestions'})).toBeDisabled();
+  await feedback.getByRole('checkbox').check();
+  await feedback.getByRole('button',{name:'Get AI resume suggestions'}).click();
+  await expect(feedback.getByRole('button',{name:'Apply suggestion'})).toBeVisible();
+  await expect(feedback.getByText('Keep bullet punctuation consistent.')).toBeVisible();
+  await feedback.getByRole('button',{name:'Dismiss recommendation'}).click();
+  await expect(feedback.getByText('Keep bullet punctuation consistent.')).toHaveCount(0);
+  await expect(skills).toHaveValue(before);
+  await page.getByLabel('I reviewed these fields').check();
+  await feedback.getByRole('button',{name:'Apply suggestion'}).click();
+  await expect(skills).toHaveValue(before.split(', ').join('; '));
+  await expect(page.getByRole('button',{name:'Confirm information'})).toBeDisabled();
+  expect((await page.request.get('/api/profile')).ok()).toBe(true);
+  const response=await page.request.get('/api/profile');expect((await response.json()).user.confirmed).toBe(false);
+});
