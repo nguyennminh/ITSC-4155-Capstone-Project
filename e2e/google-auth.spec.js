@@ -28,7 +28,7 @@ async function googleFixture(page, options = {}) {
     return route.fulfill({ contentType: 'text/javascript', body: script });
   });
   await page.route('**/api/auth/me', route => route.fulfill({ json: { user: currentUser } }));
-  for (const [path, data] of [['resumes/latest', { draft: null }], ['saved-jobs', { savedJobs: [] }], ['applications', { applications: [] }]]) {
+  for (const [path, data] of [['resumes/latest', { draft: null }], ['resumes', { resume: null }], ['saved-jobs', { savedJobs: [] }], ['applications', { applications: [] }]]) {
     await page.route(`**/api/${path}`, route => route.fulfill({ status: currentUser ? 200 : 401,
       json: currentUser ? data : { error: 'Sign in again.' } }));
   }

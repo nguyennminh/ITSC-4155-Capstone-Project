@@ -1,10 +1,16 @@
 import React, { useState } from 'react';
+import ResumeEntryEditor from '../components/ResumeEntryEditor.jsx';
+import { normalizeProfile, entryText } from '../data/profileFields.js';
 
 export default function ReviewResume({ initialProfile, rawText = '', warnings = [], onConfirm, onBack }) {
-  const [form, setForm] = useState({ ...initialProfile });
+  const [form, setForm] = useState(() => normalizeProfile(initialProfile));
   const [confirmed, setConfirmed] = useState(false);
   function update(event) {
     setForm(current => ({ ...current, [event.target.name]: event.target.value }));
+    setConfirmed(false);
+  }
+  function updateEntries(field, entries) {
+    setForm(current => ({ ...current, [field]: entries, [field === 'experienceEntries' ? 'experience' : 'projects']: entryText(entries) }));
     setConfirmed(false);
   }
   const [busy, setBusy] = useState(false);
@@ -27,8 +33,12 @@ export default function ReviewResume({ initialProfile, rawText = '', warnings = 
       <form className="card" onSubmit={submit}>
         <label>Full name<input required name="name" value={form.name} onChange={update} maxLength={100}/></label>
         <label>Email<input type="email" name="email" value={form.email || ''} onChange={update}/></label>
+        <label>Phone<input type="tel" name="phone" value={form.phone} onChange={update} maxLength={40}/></label>
         <label>Skills (comma-separated)<textarea name="skills" value={form.skills} onChange={update} maxLength={12000}/></label>
-        <label>Experience and projects<textarea name="experience" rows={7} value={form.experience} onChange={update} maxLength={12000}/></label>
+        {!form.experienceEntries.length && form.experience && <label>Existing experience text<textarea name="experience" rows={5} value={form.experience} onChange={update} maxLength={12000}/></label>}
+        <ResumeEntryEditor label="Experience" entries={form.experienceEntries} disabled={busy} onChange={entries => updateEntries('experienceEntries', entries)}/>
+        {!form.projectEntries.length && form.projects && <label>Existing projects text<textarea name="projects" rows={4} value={form.projects} onChange={update} maxLength={12000}/></label>}
+        <ResumeEntryEditor label="Projects" entries={form.projectEntries} disabled={busy} onChange={entries => updateEntries('projectEntries', entries)}/>
         <label>Education<textarea name="education" rows={3} value={form.education} onChange={update} maxLength={12000}/></label>
         <label>Certifications<textarea name="certifications" value={form.certifications} onChange={update} maxLength={12000}/></label>
         <label>Preferred job title<input name="title" value={form.title} onChange={update} maxLength={200}/></label>
