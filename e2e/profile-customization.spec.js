@@ -1,0 +1,21 @@
+import { test, expect } from '@playwright/test';
+test('profile entry edits and cancel behavior', async ({ page }) => {
+  await page.goto('/');
+  await page.getByRole('button', { name: 'Create an account', exact:true }).click();
+  await page.getByLabel('Name', {exact:true}).fill('Profile Tester');
+  await page.getByLabel('Email', { exact:true }).fill(`profile-${Date.now()}@example.org`);
+  await page.getByLabel('Password', { exact:true }).fill('profile-test-password');
+  await page.getByRole('button', { name: 'Create account', exact:true }).last().click();
+  await page.getByRole('button', { name:'Profile', exact:true }).click();
+  await page.getByLabel('Phone', {exact:true}).fill('704-555-1234');
+  await page.getByRole('button', {name:'Add projects', exact:true}).click();
+  await page.getByRole('group', {name:'Projects 1', exact:true}).getByLabel('Title', {exact:true}).fill('JobSwipe');
+  await page.getByRole('button', {name:'Save and confirm changes'}).click();
+  await expect(page.getByRole('status').filter({hasText:'Confirmed profile saved'})).toBeVisible();
+  await page.getByLabel('Phone', {exact:true}).fill('999');
+  await page.getByRole('button', {name:'Cancel changes'}).click();
+  await expect(page.getByLabel('Phone', {exact:true})).toHaveValue('704-555-1234');
+  await page.reload();
+  await page.getByRole('button', {name:'Profile', exact:true}).click();
+  await expect(page.getByRole('group', {name:'Projects 1', exact:true}).getByLabel('Title', {exact:true})).toHaveValue('JobSwipe');
+});
