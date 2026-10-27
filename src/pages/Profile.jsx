@@ -1,4 +1,6 @@
 import React, { useState } from "react";
+import ResumeEntryEditor from "../components/ResumeEntryEditor.jsx";
+import { normalizeProfile, entryText } from "../data/profileFields.js";
 
 
 export default function Profile({
@@ -8,7 +10,7 @@ export default function Profile({
   onReviewResume,
   onDeleteAccount,
 }) {
-  const [form, setForm] = useState({ ...profile });
+  const [form, setForm] = useState(() => normalizeProfile(profile));
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -26,6 +28,12 @@ export default function Profile({
     setError("");
   }
 
+  function changeEntries(field, entries) {
+    setForm(previous => ({ ...previous, [field]: entries,
+      [field === 'experienceEntries' ? 'experience' : 'projects']: entryText(entries) }));
+    setMessage(''); setError('');
+  }
+
   async function handleSubmit(event) {
     event.preventDefault();
 
@@ -37,7 +45,9 @@ export default function Profile({
     const updatedProfile = {
       ...form,
       name: form.name.trim(),
-      email: form.email.trim(),
+      email: (form.email || "").trim(),
+      phone: form.phone.trim(),
+      projects: form.projects.trim(),
       location: form.location.trim(),
       title: form.title.trim(),
       skills: form.skills.trim(),
@@ -57,7 +67,7 @@ export default function Profile({
   }
 
   function cancelChanges() {
-    setForm({ ...profile });
+    setForm(normalizeProfile(profile));
     setError("");
     setMessage("Unsaved profile changes discarded.");
   }
@@ -82,13 +92,14 @@ export default function Profile({
       <p className="notice">To extract a new resume or confirm your information for matching, use the review flow. Save any edits below before leaving this page.</p>
       <button type="button" onClick={onReviewResume}>Parse / review resume information</button>
 
-      <form className="profile-panel" onSubmit={handleSubmit}>
+      <form className="profile-panel" onSubmit={handleSubmit} aria-busy={busy}>
+        <p className="muted">Contact details do not change your sign-in email. Save your edits before requesting new job matches.</p>
         <h2>Personal information</h2>
 
         <div className="profile-grid">
           <label>
             Full name *
-            <input
+            <input disabled={busy}
               name="name"
               value={form.name}
               onChange={handleChange}
@@ -100,20 +111,22 @@ export default function Profile({
 
           <label>
             Email
-            <input
+            <input disabled={busy}
               type="email"
               name="email"
-              value={form.email}
+              value={form.email || ""}
               onChange={handleChange}
               autoComplete="email"
               maxLength={254}
             />
           </label>
 
+          <label>Phone<input disabled={busy} type="tel" name="phone" value={form.phone} maxLength={40} onChange={handleChange}/></label>
           <label>
             Location
-            <input
+            <input disabled={busy}
               name="location"
+              maxLength={200}
               value={form.location}
               onChange={handleChange}
               placeholder="Charlotte, NC"
@@ -122,8 +135,9 @@ export default function Profile({
 
           <label>
             Desired job title
-            <input
+            <input disabled={busy}
               name="title"
+              maxLength={200}
               value={form.title}
               onChange={handleChange}
               placeholder="Software Engineer"
@@ -135,8 +149,9 @@ export default function Profile({
 
         <label>
           Skills
-          <input
+          <input disabled={busy}
             name="skills"
+              maxLength={12000}
             value={form.skills}
             onChange={handleChange}
             placeholder="JavaScript, React, Python, SQL"
@@ -147,8 +162,9 @@ export default function Profile({
 
         <label>
           Education
-          <textarea
+          <textarea disabled={busy}
             name="education"
+              maxLength={12000}
             value={form.education}
             onChange={handleChange}
             rows={3}
@@ -156,21 +172,20 @@ export default function Profile({
           />
         </label>
 
-        <label>
-          Experience and projects
-          <textarea
-            name="experience"
-            value={form.experience}
-            onChange={handleChange}
-            rows={5}
-            placeholder="Internships, jobs, coursework, and projects"
-          />
-        </label>
+        {!form.experienceEntries.length && form.experience && <label>Existing experience text
+          <textarea name="experience" rows={5} value={form.experience} maxLength={12000} onChange={handleChange}/>
+        </label>}
+        <ResumeEntryEditor label="Experience" entries={form.experienceEntries} disabled={busy} onChange={entries => changeEntries('experienceEntries', entries)}/>
+        {!form.projectEntries.length && form.projects && <label>Existing projects text
+          <textarea name="projects" rows={4} value={form.projects} maxLength={12000} onChange={handleChange}/>
+        </label>}
+        <ResumeEntryEditor label="Projects" entries={form.projectEntries} disabled={busy} onChange={entries => changeEntries('projectEntries', entries)}/>
 
         <label>
           Certifications
-          <textarea
+          <textarea disabled={busy}
             name="certifications"
+              maxLength={12000}
             value={form.certifications}
             onChange={handleChange}
             rows={2}
@@ -183,7 +198,7 @@ export default function Profile({
         <div className="profile-grid">
           <label>
             Work arrangement
-            <select
+            <select disabled={busy}
               name="mode"
               value={form.mode}
               onChange={handleChange}
@@ -197,7 +212,7 @@ export default function Profile({
 
           <label>
             Employment type
-            <select
+            <select disabled={busy}
               name="type"
               value={form.type}
               onChange={handleChange}
@@ -221,6 +236,7 @@ export default function Profile({
           <button
             type="button"
             className="secondary-button"
+            disabled={busy}
             onClick={cancelChanges}
           >
             Cancel changes
