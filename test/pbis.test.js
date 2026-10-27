@@ -44,7 +44,7 @@ async function upload(call, name = 'resume.docx') {
 for (const extension of ['pdf', 'docx']) test(`#10 extracts ${extension} skills, experience, education and certifications`, async () => {
   const text = await extractText({ originalname: `resume.${extension}`, buffer: await fixture(`resume.${extension}`) });
   const fields = parseResumeFields(text);
-  assert.match(fields.skills, /Python/); assert.match(fields.experience, /data pipeline/);
+  assert.match(fields.skills, /Python/); assert.match(fields.experience, /React website/); assert.match(fields.projects, /data pipeline/);
   assert.match(fields.education, /Computer Science/); assert.match(fields.certifications, /Cloud certificate/);
 });
 test('#10 missing sections stay empty, never invented', async () => {

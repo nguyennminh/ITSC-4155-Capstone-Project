@@ -13,7 +13,10 @@ import { installGoogleAuth } from './googleAuth.js';
 
 const loginSchema = z.object({ email: z.string().trim().email().max(254).transform(v => v.toLowerCase()), password: z.string().min(10).max(128) });
 const registerSchema = loginSchema.extend({ name: z.string().trim().min(1).max(100), role: z.enum(['Job seeker', 'Recruiter']).default('Job seeker') });
+const entrySchema = z.object({ title: z.string().trim().max(200), organization: z.string().trim().max(200), dates: z.string().trim().max(100), bullets: z.array(z.string().max(6000)).max(50) });
 const profileSchema = z.object({
+  phone: z.string().trim().max(40).optional(), projects: z.string().trim().max(12000).optional(),
+  experienceEntries: z.array(entrySchema).max(20).optional(), projectEntries: z.array(entrySchema).max(20).optional(),
   name: z.string().trim().min(1).max(100), email: z.union([z.literal(''), z.string().email()]),
   skills: z.string().trim().max(12000), experience: z.string().trim().max(12000),
   education: z.string().trim().max(12000), certifications: z.string().trim().max(12000),
@@ -206,8 +209,8 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     let matches = [];
     if (eligible.length) {
       try {
-        const { skills, experience, education, certifications, title, location, mode, type } = profile;
-        matches = (await explain({ skills, experience, education, certifications, title, location, mode, type }, eligible))
+        const { skills, experience, projects, education, certifications, title, location, mode, type } = profile;
+        matches = (await explain({ skills, experience, projects, education, certifications, title, location, mode, type }, eligible))
           .filter(item => item.score > 0)
           .map(item => ({ ...item, aiReasons: item.reasons, reasons: item.reasons }));
       } catch (error) {

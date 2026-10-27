@@ -8,4 +8,4 @@ export const applicants = [
   { id: 1, name: 'Alex Chen', skills: 'React, JavaScript, SQL', education: 'B.S. Computer Science', experience: 'Software engineering internship', status: 'New' },
   { id: 2, name: 'Jordan Lee', skills: 'Python, SQL, Git', education: 'B.S. Data Science', experience: 'Data pipeline capstone project', status: 'New' }
 ];
-export const emptyProfile = { name: '', skills: '', experience: '', education: '', certifications: '', title: 'Software Engineer', location: '', mode: 'Any', type: 'Any', resumeName: '' };
+export const emptyProfile = { name: '', phone: '', projects: '', experienceEntries: [], projectEntries: [], skills: '', experience: '', education: '', certifications: '', title: 'Software Engineer', location: '', mode: 'Any', type: 'Any', resumeName: '' };
