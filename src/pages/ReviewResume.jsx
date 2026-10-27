@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import ResumeSuggestions from '../components/ResumeSuggestions.jsx';
 import ResumeEntryEditor from '../components/ResumeEntryEditor.jsx';
 import { normalizeProfile, entryText } from '../data/profileFields.js';
 
@@ -64,5 +65,6 @@ export default function ReviewResume({ initialProfile, rawText = '', warnings = 
         <pre className="resume-text">{rawText || 'Manual entry: refer to your original resume.'}</pre>
       </aside>
     </div>
+    <ResumeSuggestions profile={form} disabled={busy} onApply={updated => { setForm(updated); setConfirmed(false); }}/>
   </section>;
 }
