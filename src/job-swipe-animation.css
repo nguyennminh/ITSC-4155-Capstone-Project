@@ -1,0 +1,29 @@
+.swipe-surface {
+    transform-origin: center center;
+    animation: job-card-enter 360ms cubic-bezier(.2, .75, .25, 1) both;
+    will-change: transform, opacity;
+  }
+  .swipe-surface.swipe-exit-left {
+    pointer-events: none;
+    animation: job-card-exit-left 280ms cubic-bezier(.4, 0, 1, 1) both;
+  }
+  .swipe-surface.swipe-exit-right {
+    pointer-events: none;
+    animation: job-card-exit-right 280ms cubic-bezier(.4, 0, 1, 1) both;
+  }
+  @keyframes job-card-enter {
+    from { opacity: 0; transform: translate3d(0, 18px, 0) scale(.98); }
+    to { opacity: 1; transform: translate3d(0, 0, 0) scale(1); }
+  }
+  @keyframes job-card-exit-left {
+    to { opacity: 0; transform: translate3d(-115%, 0, 0) rotate(-9deg); }
+  }
+  @keyframes job-card-exit-right {
+    to { opacity: 0; transform: translate3d(115%, 0, 0) rotate(9deg); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .swipe-surface,
+    .swipe-surface.swipe-exit-left,
+    .swipe-surface.swipe-exit-right { animation-duration: 1ms; }
+  }
+  
