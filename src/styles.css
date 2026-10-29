@@ -112,8 +112,19 @@ textarea {
 }
 
 .brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
   color: #087f83;
   font-size: 1.6rem;
+}
+
+.brand-logo {
+  width: 40px;
+  height: 40px;
+  object-fit: contain;
+  border-radius: 8px;
+  flex-shrink: 0;
 }
 
 /* Shared page layouts */
@@ -517,3 +528,103 @@ textarea { line-height: 1.6; }
 .evidence-item p { margin: 8px 0 0; overflow-wrap: anywhere; }
 .deeper-insights { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--border, #cbd5e1); }
 .match-explanation li { margin-bottom: 10px; }
+
+
+/* Dark mode */
+
+.theme-toggle {
+  white-space: nowrap;
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --ink: #e5edf2;
+  --muted: #a6b9c6;
+  --accent: #32b8ad;
+  --accent-dark: #65d6c9;
+  --surface: #1c2a36;
+  --border: #344755;
+  --soft: #243e42;
+
+  color: var(--ink);
+  background: #111b25;
+}
+
+/* Main backgrounds and text */
+
+[data-theme="dark"] body {
+  background: #111b25;
+  color: var(--ink);
+}
+
+[data-theme="dark"] .navigation,
+[data-theme="dark"] .card,
+[data-theme="dark"] .profile-panel,
+[data-theme="dark"] .resume-entry,
+[data-theme="dark"] .evidence-item,
+[data-theme="dark"] .details-panel {
+  background: var(--surface);
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+/* Buttons */
+
+[data-theme="dark"] button {
+  background: #273a48;
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] button:hover:not(:disabled) {
+  background: #34505c;
+  border-color: var(--accent);
+}
+
+[data-theme="dark"] button.active,
+[data-theme="dark"] .primary,
+[data-theme="dark"] .profile-panel button:not(.secondary-button) {
+  background: #087f83;
+  color: #fff;
+  border-color: #087f83;
+}
+
+/* Form fields */
+
+[data-theme="dark"] input,
+[data-theme="dark"] textarea,
+[data-theme="dark"] select {
+  background: #182833;
+  color: var(--ink);
+  border-color: #4a626f;
+}
+
+/* Additional sections */
+
+[data-theme="dark"] .notice,
+[data-theme="dark"] .dropzone,
+[data-theme="dark"] .resume-details,
+[data-theme="dark"] .match-explanation,
+[data-theme="dark"] .tags span,
+[data-theme="dark"] .badge {
+  background: var(--soft);
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+/* Links and secondary text */
+
+[data-theme="dark"] a {
+  color: #7be0d3;
+}
+
+[data-theme="dark"] .muted,
+[data-theme="dark"] small,
+[data-theme="dark"] .demo-label {
+  color: var(--muted);
+}
+
+[data-theme="dark"] .brand {
+  color: #65d6c9;
+}
