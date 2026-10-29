@@ -4,6 +4,8 @@ import JobCard from '../components/JobCard.jsx';
 import useSwipe from '../hooks/useSwipe.js';
 import { getMatches } from '../services/resumeService.js';
 
+const SWIPE_ANIMATION_MS = 280;
+
 export default function Discover({ jobs, profile, confirmed, saved, onSave, onApply, onReview, onDetails, onResults, onRefreshJobs, accountId }) {
   const storageKey = `jobswipe-skips:${accountId}`;
   const [skipped, setSkipped] = useState(() => {
@@ -14,10 +16,16 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
   const [saving, setSaving] = useState(false);
   const [decisionNotice, setDecisionNotice] = useState('');
   const decisionPending = useRef(false);
+  const animationTimer = useRef(null);
+  const [swipeDirection, setSwipeDirection] = useState('');
   const [matches, setMatches] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
+
+  useEffect(() => () => {
+    if (animationTimer.current) window.clearTimeout(animationTimer.current);
+  }, []);
 
   async function runMatching() {
     setLoading(true); setError(''); setNotice('');
@@ -34,12 +42,14 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
   const available = (matches || []).filter(match => !skipped.includes(String(match.jobId)) && !saved.some(id => String(id) === String(match.jobId)));
   const current = available[0];
   const job = jobs.find(job => job.id === current?.jobId);
-  const resumeSkills = String(profile.skills || '').split(/[,;\n|]+/).map(skill => skill.trim()).filter(Boolean);
+  const resumeSkills = String(profile.skills || '').split(/[,;\\n|]+/).map(skill => skill.trim()).filter(Boolean);
   function advance(id) { setSkipped(ids => [...new Set([...ids, String(id)])]); }
+
   function skip() {
     if (!job || decisionPending.current || loading) return;
     advance(job.id); setDecisionNotice(`Skipped ${job.title}.`);
   }
+
   async function saveAndSkip() {
     if (!job || decisionPending.current || loading) return;
     decisionPending.current = true; setSaving(true); setError('');
@@ -51,7 +61,24 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
     } catch (err) { setError(err.message); }
     finally { decisionPending.current = false; setSaving(false); }
   }
-  const gestures = useSwipe({ onLeft:skip, onRight:saveAndSkip, disabled:saving || loading });
+
+  function animateDecision(direction) {
+    if (!job || saving || loading || swipeDirection || decisionPending.current) return;
+    setSwipeDirection(direction);
+    animationTimer.current = window.setTimeout(() => {
+      animationTimer.current = null;
+      setSwipeDirection('');
+      if (direction === 'left') skip();
+      else saveAndSkip();
+    }, SWIPE_ANIMATION_MS);
+  }
+
+  const gestures = useSwipe({
+    onLeft: () => animateDecision('left'),
+    onRight: () => animateDecision('right'),
+    disabled: saving || loading || Boolean(swipeDirection)
+  });
+
   return <section>
     <h1>Discover jobs</h1>
     <p>Swipe left to skip, right to save. Listings supplied by Adzuna.</p>
@@ -82,10 +109,19 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
     </div>}
     <p id="swipe-help" className="muted">Drag the card sideways, use the buttons, or focus the card and use left/right arrow keys. Skips are remembered in this browser tab for your account.</p>
     <p role="status" aria-live="polite">{saving ? 'Saving job…' : decisionNotice}</p>
-    {job && <div className="swipe-surface" role="region" aria-label="Current recommended job" aria-describedby="swipe-help" aria-busy={saving} tabIndex={0} {...gestures}>
+    {job && <div
+      key={job.id}
+      className={`swipe-surface${swipeDirection ? ` swipe-exit-${swipeDirection}` : ''}`}
+      role="region"
+      aria-label="Current recommended job"
+      aria-describedby="swipe-help"
+      aria-busy={saving || Boolean(swipeDirection)}
+      tabIndex={0}
+      {...gestures}
+    >
       <JobCard job={job} recommendation={current} onDetails={onDetails}>
-        <button disabled={saving} onClick={skip}>Skip</button>
-        <button disabled={saving} onClick={saveAndSkip}>{saving ? 'Saving…' : 'Save job'}</button>
+        <button disabled={saving || Boolean(swipeDirection)} onClick={() => animateDecision('left')}>Skip</button>
+        <button disabled={saving || Boolean(swipeDirection)} onClick={() => animateDecision('right')}>{saving ? 'Saving…' : 'Save job'}</button>
         <ApplyButton job={job} onStart={onApply}/>
       </JobCard>
     </div>}
