@@ -1,11 +1,19 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import ApplyButton from '../components/ApplyButton.jsx';
 import JobCard from '../components/JobCard.jsx';
+import useSwipe from '../hooks/useSwipe.js';
 import { getMatches } from '../services/resumeService.js';
 
-export default function Discover({ jobs, profile, confirmed, saved, onSave, onApply, onReview, onDetails, onResults, onRefreshJobs }) {
-  const [skipped, setSkipped] = useState([]);
-  const [startX, setStartX] = useState(null);
+export default function Discover({ jobs, profile, confirmed, saved, onSave, onApply, onReview, onDetails, onResults, onRefreshJobs, accountId }) {
+  const storageKey = `jobswipe-skips:${accountId}`;
+  const [skipped, setSkipped] = useState(() => {
+    try { const value = JSON.parse(sessionStorage.getItem(storageKey) || '[]'); return Array.isArray(value) ? value.filter(id => typeof id === 'string') : []; }
+    catch { return []; }
+  });
+  useEffect(() => { try { sessionStorage.setItem(storageKey, JSON.stringify(skipped)); } catch { /* Storage can be disabled. */ } }, [storageKey, skipped]);
+  const [saving, setSaving] = useState(false);
+  const [decisionNotice, setDecisionNotice] = useState('');
+  const decisionPending = useRef(false);
   const [matches, setMatches] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -18,22 +26,37 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
     onResults({ jobs, matches: [], source: 'gemini' });
     try {
       const result = await getMatches(consent);
-      setMatches(result.matches); onResults(result); setSkipped([]);
+      setMatches(result.matches); onResults(result);
       setNotice(result.message || '');
     } catch (err) { setError(err.message); }
     finally { setLoading(false); }
   }
 
-  const available = (matches || []).filter(match => !skipped.includes(match.jobId));
+  const available = (matches || []).filter(match => !skipped.includes(String(match.jobId)) && !saved.some(id => String(id) === String(match.jobId)));
   const current = available[0];
   const job = jobs.find(job => job.id === current?.jobId);
   const resumeSkills = String(profile.skills || '').split(/[,;\n|]+/).map(skill => skill.trim()).filter(Boolean);
-  function skip() { if (job) setSkipped(ids => [...ids, job.id]); }
-  function saveAndSkip() { if (job) { onSave(job); skip(); } }
+  function advance(id) { setSkipped(ids => [...new Set([...ids, String(id)])]); }
+  function skip() {
+    if (!job || decisionPending.current || loading) return;
+    advance(job.id); setDecisionNotice(`Skipped ${job.title}.`);
+  }
+  async function saveAndSkip() {
+    if (!job || decisionPending.current || loading) return;
+    decisionPending.current = true; setSaving(true); setError('');
+    const selected = job;
+    try {
+      const success = await onSave(selected);
+      if (success === false) throw new Error('Job could not be saved. Try again.');
+      advance(selected.id); setDecisionNotice(`Saved ${selected.title}.`);
+    } catch (err) { setError(err.message); }
+    finally { decisionPending.current = false; setSaving(false); }
+  }
+  const gestures = useSwipe({ onLeft:skip, onRight:saveAndSkip, disabled:saving || loading });
   return <section>
     <h1>Discover jobs</h1>
     <p>Swipe left to skip, right to save. Listings supplied by Adzuna.</p>
-    <button type="button" onClick={onRefreshJobs}>Refresh Adzuna jobs</button>
+    <button type="button" disabled={saving || loading} onClick={onRefreshJobs}>Refresh Adzuna jobs</button>
     <div className="card">
       <h2>Match jobs with Gemini reasoning</h2>
       <p>Gemini compares your confirmed qualifications with each available job’s title, requirements, and description. It returns a fit estimate, specific evidence for the match, and requirements not found in your profile. Work arrangement and employment type filter jobs.</p>
@@ -48,7 +71,7 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
       <label className="checkbox-label"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/>
         I agree to send my confirmed qualification fields and preferences, plus the listed job details, to Google Gemini for matching. Name/email fields and raw resume files are excluded. Remove personal details from free-text fields. Google’s applicable data-use terms apply.
       </label>
-      <button className="primary" disabled={!confirmed || loading || !consent || !jobs.length} onClick={runGeminiMatching}>
+      <button className="primary" disabled={!confirmed || loading || saving || !consent || !jobs.length} onClick={runGeminiMatching}>
         {loading ? 'Gemini is reasoning about your matches…' : 'Rank jobs with Gemini'}
       </button>
       <p className="muted">Scores are subjective fit estimates, not hiring probabilities. Adzuna descriptions may be excerpts; review the original posting and Gemini’s cited evidence.</p>
@@ -61,16 +84,12 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
       <p>Update your qualifications or broaden your preferences to find other opportunities.</p>
       {matches.length > 0 && <button onClick={() => setSkipped([])}>Review skipped jobs</button>}
     </div>}
-    {job && <div className="swipe-surface" onTouchStart={event => setStartX(event.touches[0].clientX)} onTouchCancel={() => setStartX(null)} onTouchEnd={event => {
-      if (startX === null) return;
-      const distance = event.changedTouches[0].clientX - startX;
-      if (distance < -70) skip();
-      if (distance > 70) saveAndSkip();
-      setStartX(null);
-    }}>
+    <p id="swipe-help" className="muted">Drag the card sideways, use the buttons, or focus the card and use left/right arrow keys. Skips are remembered in this browser tab for your account.</p>
+    <p role="status" aria-live="polite">{saving ? 'Saving job…' : decisionNotice}</p>
+    {job && <div className="swipe-surface" role="region" aria-label="Current recommended job" aria-describedby="swipe-help" aria-busy={saving} tabIndex={0} {...gestures}>
       <JobCard job={job} recommendation={current} onDetails={onDetails}>
-        <button onClick={skip}>Skip</button>
-        <button disabled={saved.includes(job.id)} onClick={saveAndSkip}>{saved.includes(job.id) ? 'Saved' : 'Save job'}</button>
+        <button disabled={saving} onClick={skip}>Skip</button>
+        <button disabled={saving} onClick={saveAndSkip}>{saving ? 'Saving…' : 'Save job'}</button>
         <ApplyButton job={job} onStart={onApply}/>
       </JobCard>
     </div>}
