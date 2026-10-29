@@ -36,6 +36,8 @@ export default function App() {
   const [sessionError, setSessionError] = useState("");
   const [loginNotice, setLoginNotice] = useState("");
   const [logoutBusy, setLogoutBusy] = useState(false);
+  const [accountId, setAccountId] = useState(null);
+  const accountVersion = useRef(0);
   const [role, setRole] = useState("Job seeker");
   const [profile, setProfile] = useState({ ...initialProfile });
   const [resume, setResume] = useState(null);
@@ -83,16 +85,18 @@ export default function App() {
   }
 
   async function loadJobs({ refresh = false } = {}) {
+    const version = accountVersion.current;
     setLoading(true);
     setError("");
 
     try {
       const results = await getJobs({ refresh });
+      if (version !== accountVersion.current) return;
       setJobs(results);
     } catch (err) {
-      setError(err.message || "Could not load jobs. Please retry.");
+      if (version === accountVersion.current) setError(err.message || "Could not load jobs. Please retry.");
     } finally {
-      setLoading(false);
+      if (version === accountVersion.current) setLoading(false);
     }
   }
 
@@ -103,7 +107,10 @@ export default function App() {
   }
 
   function enter(user) {
-    getApplications().then(result => setApplications(result.applications)).catch(err => setMessage(err.message));
+    accountVersion.current++; setAccountId(user.id);
+    const version = accountVersion.current;
+    getApplications().then(result => { if (version === accountVersion.current) setApplications(result.applications); })
+      .catch(err => { if (version === accountVersion.current) setMessage(err.message); });
     loadSavedJobs();
     setDetail(null); setRecommendations([]);
     setProfile(user.profile);
@@ -121,16 +128,18 @@ export default function App() {
   }
 
   async function loadSavedJobs() {
+    const version = accountVersion.current;
     setSavedLoading(true);
     setSavedError("");
     try {
       const result = await getSavedJobs();
+      if (version !== accountVersion.current) return;
       setSavedListings(result.savedJobs);
       setSaved(result.savedJobs.map(job => job.id));
     } catch (err) {
-      setSavedError(err.message);
+      if (version === accountVersion.current) setSavedError(err.message);
     } finally {
-      setSavedLoading(false);
+      if (version === accountVersion.current) setSavedLoading(false);
     }
   }
 
@@ -140,7 +149,9 @@ export default function App() {
   }
 
   async function saveProfile(updatedProfile) {
+    const version = accountVersion.current;
     const { user } = await jsonPost('/api/profile/confirm', { confirmed: true, profile: updatedProfile });
+    if (version !== accountVersion.current) throw new Error('Account changed. Sign in and retry.');
     setProfile(user.profile);
     setProfileConfirmed(user.confirmed);
     setRecommendations([]);
@@ -150,25 +161,33 @@ export default function App() {
   }
 
   async function confirmResume(updatedProfile, file) {
+    const version = accountVersion.current;
     await saveProfile({ ...updatedProfile, resumeName: file?.name || updatedProfile.resumeName || "" });
+    if (version !== accountVersion.current) return;
     setResume(file);
     navigate(page === "onboarding" ? "discover" : "profile");
   }
 
   async function saveJob(job) {
+    const version = accountVersion.current;
     try {
       const result = await persistSavedJob(job.id);
+      if (version !== accountVersion.current) return false;
       setSavedListings(result.savedJobs);
       setSaved(result.savedJobs.map(savedJob => savedJob.id));
       setMessage("Job saved.");
+      return true;
     } catch (err) {
-      setMessage(err.message);
+      if (version === accountVersion.current) setMessage(err.message);
+      return false;
     }
   }
 
   async function removeSavedJob(id) {
+    const version = accountVersion.current;
     try {
       const result = await deleteSavedJob(id);
+      if (version !== accountVersion.current) return;
       setSavedListings(result.savedJobs);
       setSaved(result.savedJobs.map(job => job.id));
     } catch (err) {
@@ -177,18 +196,23 @@ export default function App() {
   }
 
   async function apply(job) {
+    const version = accountVersion.current;
     const result = await startApplication(job.id);
+    if (version !== accountVersion.current) throw new Error('Account changed. Sign in and retry.');
     setApplications(result.applications);
     return result;
   }
   async function updateApplicationStatus(id, status) {
-    try { const result = await changeApplicationStatus(id, status); setApplications(result.applications); }
-    catch(err) { setMessage(err.message); }
+    const version = accountVersion.current;
+    try { const result = await changeApplicationStatus(id, status); if (version === accountVersion.current) setApplications(result.applications); }
+    catch(err) { if (version === accountVersion.current) setMessage(err.message); }
   }
 
 
   async function handleDeleteApplication(jobId) {
+    const version = accountVersion.current;
     const result = await deleteApplicationRequest(jobId);
+    if (version !== accountVersion.current) return;
     setApplications(result.applications);
     setMessage("Application deleted successfully.");
   }
@@ -204,6 +228,7 @@ export default function App() {
   }
 
   function resetAccount(notice = "") {
+    accountVersion.current++; setAccountId(null);
     setProfile({ ...initialProfile });
     setResume(null);
     setProfileConfirmed(false);
@@ -220,8 +245,7 @@ export default function App() {
 
   async function removeAccount() {
     await deleteAccount();
-    setProfile({ ...initialProfile }); setResume(null); setProfileConfirmed(false); setSaved([]);
-    setApplications([]); setDetail(null); setRecommendations([]); setJobs([]); setRole("Job seeker"); setPage("login");
+    resetAccount();
   }
 
   if (sessionLoading) return <main className="container"><p role="status">Loading your account…</p></main>;
@@ -231,6 +255,7 @@ export default function App() {
   }
 
   const isJobPage = page === "discover";
+  const renderVersion = accountVersion.current;
 
   return (
     <>
@@ -290,7 +315,8 @@ export default function App() {
 
         {!loading && !error && page === "discover" && (
           <Discover
-            key={JSON.stringify(profile)}
+            key={`${accountId}:${JSON.stringify(profile)}`}
+            accountId={accountId}
             confirmed={profileConfirmed}
             onReview={() => navigate("resume")}
             jobs={jobs}
@@ -300,7 +326,7 @@ export default function App() {
             onApply={apply}
             onDetails={openDetails}
             recommendations={recommendations}
-            onResults={receiveMatches}
+            onResults={result => { if (renderVersion === accountVersion.current) receiveMatches(result); }}
             onRefreshJobs={refreshJobs}
           />
         )}
@@ -317,7 +343,7 @@ export default function App() {
             onApply={apply}
             onDetails={openDetails}
             recommendations={recommendations}
-            onResults={receiveMatches}
+            onResults={result => { if (renderVersion === accountVersion.current) receiveMatches(result); }}
           />
         )}
 
