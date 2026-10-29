@@ -234,7 +234,9 @@ small,
 /* Job discovery */
 
 .swipe-surface {
+  width: 100%;
   max-width: 720px;
+  margin-inline: auto;
   touch-action: pan-y;
 }
 
@@ -627,4 +629,33 @@ textarea { line-height: 1.6; }
 
 [data-theme="dark"] .brand {
   color: #65d6c9;
+}
+
+/* Keep complete skill names together while allowing the list to wrap. */
+.skill-tags { align-items: center; }
+.skill-tags span { flex: 0 0 auto; white-space: nowrap; overflow-wrap: normal; word-break: normal; max-width: 100%; }
+.swipe-surface { position: relative; }
+.swipe-targets { position: absolute; inset: 0; z-index: 2; display: flex; pointer-events: none; border-radius: 16px; overflow: hidden; transition: background .15s, box-shadow .15s; }
+.swipe-target { width: 50%; display: flex; flex-direction: column; align-items: flex-start; padding: 24px; gap: 8px; opacity: .5; transition: opacity .15s; }
+.swipe-target strong { font-size: 2rem; text-transform: uppercase; border: 3px solid currentColor; padding: 4px 14px; border-radius: 8px; transform: rotate(-12deg); }
+.swipe-target-pass { color: #991b1b; }
+.swipe-target-save { color: #065f46; align-items: flex-end; text-align: right; }
+.swipe-target-save strong { transform: rotate(12deg); }
+.swipe-target strong, .swipe-target span { background: var(--surface, #fff); }
+.swipe-target span { padding: 4px 8px; border-radius: 6px; }
+.swipe-targets.choosing-pass { background: rgb(185 28 28 / .10); box-shadow: inset 0 0 0 3px #b91c1c; }
+.swipe-targets.choosing-save { background: rgb(4 120 87 / .10); box-shadow: inset 0 0 0 3px #047857; }
+.choosing-pass .swipe-target-pass, .choosing-save .swipe-target-save { opacity: 1; }
+.choosing-pass .swipe-target-save, .choosing-save .swipe-target-pass { opacity: 0; }
+.swipe-target.is-active strong { border-width: 4px; }
+.swipe-surface.is-dragging { animation: none; transition: none; cursor: grabbing; user-select: none; }
+.interest-dialog { max-width: min(520px, calc(100vw - 32px)); padding: 28px; border: 1px solid var(--border); border-radius: 16px; background: var(--surface, #fff); color: var(--ink); }
+.interest-dialog::backdrop { background: rgb(0 0 0 / .55); }
+.interest-dialog .actions { display: flex; gap: 16px; flex-wrap: wrap; align-items: center; }
+[data-theme="dark"] .swipe-target-pass { color: #fecaca; }
+[data-theme="dark"] .swipe-target-save { color: #a7f3d0; }
+@media (max-width: 600px) {
+  .swipe-target { padding: 12px; }
+  .swipe-target strong { font-size: 1.4rem; }
+  .swipe-target span { max-width: 110px; font-size: .85rem; }
 }
