@@ -417,3 +417,97 @@ small,
 .job-description { white-space: pre-wrap; line-height: 1.7; }
 .match-explanation { margin: 20px 0; padding: 16px; background: #f3f5f8; border-radius: 8px; }
 .apply-control { margin-top: 12px; }
+
+/* Sprint 4 shared visual system. Keep component styles here so pages agree. */
+:root {
+  --ink: #183344;
+  --muted: #506574;
+  --accent: #087b75;
+  --accent-dark: #075e59;
+  --surface: #ffffff;
+  --border: #d6e2e5;
+  --soft: #eaf5f2;
+  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  color: var(--ink);
+  background: #f3f7f7;
+  line-height: 1.6;
+}
+html { scroll-padding-top: 1rem; }
+body { min-width: 0; }
+button, input, textarea, select { max-width: 100%; min-width: 0; }
+button { min-height: 44px; font-weight: 600; border-color: var(--border); border-radius: 10px; transition: background .15s, border-color .15s; }
+button:hover:not(:disabled) { background: var(--soft); border-color: var(--accent); }
+button:active:not(:disabled) { background: #d8ece7; }
+button:disabled { opacity: .65; }
+.primary, button.active, .profile-panel button:not(.secondary-button) { background: var(--accent); border-color: var(--accent); color: #fff; }
+.primary:hover:not(:disabled), button.active:hover:not(:disabled), .profile-panel button:not(.secondary-button):hover:not(:disabled) { background: var(--accent-dark); color: #fff; }
+a { color: #07655f; text-underline-offset: 3px; overflow-wrap: anywhere; }
+a:hover { color: #03433f; }
+:focus-visible { outline: 3px solid #a65b00; outline-offset: 3px; }
+h1 { font-size: clamp(1.8rem, 4vw, 2.5rem); letter-spacing: -.035em; margin-bottom: .65rem; }
+h2 { line-height: 1.3; letter-spacing: -.02em; }
+h3 { line-height: 1.4; }
+p, h1, h2, h3, label, legend, .tags span { overflow-wrap: anywhere; }
+input, textarea, select { min-height: 44px; border-color: #a1b7bd; border-radius: 9px; }
+input:disabled, textarea:disabled, select:disabled { background: #eff3f4; }
+input[type="checkbox"] { min-height: auto; width: 20px; height: 20px; accent-color: var(--accent); }
+textarea { line-height: 1.6; }
+.navigation { gap: 1rem; padding: 1rem max(4%, calc((100vw - 1100px) / 2)); border-color: var(--border); }
+.navigation nav { min-width: 0; }
+.navigation nav button { border-color: transparent; }
+.brand { color: var(--accent-dark); letter-spacing: -.06em; font-weight: 800; white-space: nowrap; }
+.container { width: 100%; max-width: 1150px; padding: clamp(1rem, 3vw, 2rem); }
+.card, .profile-panel { border-color: var(--border); border-radius: 16px; box-shadow: 0 5px 20px #15374306; }
+.card > :first-child { margin-top: 0; }
+.card > :last-child { margin-bottom: 0; }
+.job-grid > *, .profile-grid > *, .login-layout > *, .two-columns > * { min-width: 0; }
+.tags { gap: .45rem; margin: 1rem 0; }
+.tags span, .badge { background: var(--soft); color: #22594d; border-radius: 999px; padding: .3rem .75rem; font-size: .85rem; }
+.badge { display: inline-block; font-weight: 700; }
+.job-card h2 { margin: 1rem 0 .5rem; }
+.job-card { width: 100%; }
+.job-card > p { white-space: pre-wrap; }
+.muted, small, .demo-label { color: var(--muted); }
+.notice { border-radius: 0 10px 10px 0; background: var(--soft); border-color: var(--accent); }
+.profile-error:not(:empty) { background: #fff0ed; color: #9d251a; padding: .85rem 1rem; border-radius: 10px; border: 1px solid #edb7ae; }
+.profile-success:not(:empty) { background: #eaf6ed; color: #205e34; padding: .85rem 1rem; border-radius: 10px; }
+[role="status"] { overflow-wrap: anywhere; }
+.login-layout { width: 100%; max-width: 1050px; }
+.login-layout .card { padding: clamp(1.2rem, 3vw, 2rem); }
+.dropzone { background: #f8fcfa; border-radius: 14px; }
+.dropzone input { padding: .5rem; }
+.profile-panel .checkbox-label { flex-direction: row; font-weight: normal; }
+.resume-entry { min-width: 0; border: 1px solid var(--border); padding: 1rem; border-radius: 12px; margin: 1rem 0; }
+.resume-entry legend { padding: 0 .4rem; font-weight: 700; }
+.entry-editor { margin: 1.5rem 0; }
+.resume-suggestions { margin-top: 2rem; }
+.suggestion-item { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid var(--border); }
+.resume-text { max-height: 65vh; }
+.swipe-surface { border-radius: 16px; touch-action: pan-y; }
+.swipe-surface[aria-busy="true"] { opacity: .75; }
+.details-overlay { padding: clamp(.5rem, 3vw, 2rem); }
+.details-panel { width: 100%; max-height: none; }
+.job-description { overflow-wrap: anywhere; }
+.danger-zone { border-color: #e9c5bf; }
+.danger-zone .secondary-button { color: #9d251a; border-color: #d2a39a; }
+@media (max-width: 850px) {
+  .navigation { flex-wrap: wrap; }
+  .navigation nav { flex-basis: 100%; order: 3; }
+  .navigation > button { margin-left: auto; }
+  .login-layout { gap: 1.5rem; }
+}
+@media (max-width: 700px) {
+  .navigation { flex-direction: row; align-items: center; }
+  .navigation nav { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+  .navigation nav button { width: 100%; padding: .6rem .4rem; }
+  .login-layout { grid-template-columns: 1fr; }
+  .login-layout h1 { font-size: 2rem; }
+  .actions, .profile-actions { align-items: stretch; }
+  .actions > button, .profile-actions > button { flex: 1 1 140px; }
+  .card, .profile-panel { padding: 1rem; border-radius: 12px; }
+  .resume-entry { padding: .8rem; }
+  .profile-grid { gap: .5rem; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}

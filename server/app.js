@@ -26,7 +26,7 @@ const profileSchema = z.object({
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
 });
-export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions } = {}) {
+export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20 } = {}) {
   const store = new Proxy(providedStore, {
     get(target, property, receiver) {
       const method = Reflect.get(target, property, receiver);
@@ -52,11 +52,11 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     if (req.headers.origin && !allowed.has(req.headers.origin)) return res.status(403).json({ error: 'Origin not allowed.' });
     next();
   });
-  app.use('/api', rateLimit({ windowMs: 60000, limit: 120, standardHeaders: 'draft-8', legacyHeaders: false,
+  app.use('/api', rateLimit({ windowMs: 60000, limit: apiLimit, standardHeaders: 'draft-8', legacyHeaders: false,
     message: { error: 'Too many requests. Wait a minute and retry.' } }));
   app.use(express.json({ limit: '100kb' }));
   app.get('/api/health', (req, res) => res.json({ ok: true, aiConfigured: Boolean(process.env.GEMINI_API_KEY) }));
-  const authAttempts = rateLimit({ windowMs: 60000, limit: 20, message: { error: 'Too many sign-in attempts. Wait a minute.' } });
+  const authAttempts = rateLimit({ windowMs: 60000, limit: authLimit, message: { error: 'Too many sign-in attempts. Wait a minute.' } });
   app.use(['/api/auth/register', '/api/auth/login'], authAttempts);
   installGoogleAuth(app, { store, authAttempts, clientId: googleClientId, verify: verifyGoogle });
   app.post('/api/auth/register', async (req, res) => {
