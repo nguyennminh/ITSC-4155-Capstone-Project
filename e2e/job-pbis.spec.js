@@ -8,6 +8,8 @@ test('details preserve swipe progress; applications persist; AI changes order', 
   await page.getByRole('button',{name:'Parse resume',exact:true}).click();
   await page.getByLabel('Skills (comma-separated)').fill('React, JavaScript, SQL, Python, Git, CSS');
   await page.getByLabel('I reviewed these fields').check();await page.getByRole('button',{name:'Confirm information'}).click();
+  await expect(page.getByRole('heading',{name:'Discover jobs',exact:true})).toBeVisible();
+  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Rank jobs with Gemini'}).click();
   await expect(page.getByRole('button',{name:'View details'})).toBeVisible();
   await page.getByRole('button',{name:'Skip',exact:true}).click();
   const title=await page.locator('.job-card h2').innerText();
@@ -22,6 +24,6 @@ test('details preserve swipe progress; applications persist; AI changes order', 
   await page.getByRole('button',{name:'Applications',exact:true}).click();await expect(page.getByLabel('Status')).toHaveValue('Started');
   await page.getByLabel('Status').selectOption('Applied');await page.reload();
   await page.getByRole('button',{name:'Applications',exact:true}).click();await expect(page.getByLabel('Status')).toHaveValue('Applied');
-  await page.getByRole('button',{name:'Discover',exact:true}).click();await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Refresh matches'}).click();
-  await expect(page.locator('.job-card h2')).toHaveText('Frontend Developer');await expect(page.getByText('99/100 · AI fit estimate')).toBeVisible();
+  await page.getByRole('button',{name:'Discover',exact:true}).click();await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Rank jobs with Gemini'}).click();
+  await expect(page.locator('.job-card h2')).toHaveText('Junior Software Engineer');await expect(page.getByText('50/100 · Gemini fit estimate')).toBeVisible();
 });
