@@ -1,4 +1,5 @@
 import express from 'express';
+import { createLocalMatcher } from './services/localMatcher.js';
 import multer from 'multer';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
@@ -26,7 +27,7 @@ const profileSchema = z.object({
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
 });
-export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, jobProvider = createJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20 } = {}) {
+export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, rank = createLocalMatcher(), jobProvider = createJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20 } = {}) {
   const store = new Proxy(providedStore, {
     get(target, property, receiver) {
       const method = Reflect.get(target, property, receiver);
@@ -212,30 +213,27 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
   });
   app.post('/api/jobs/match', async (req, res) => {
     if (!req.user.confirmed) throw new ApiError(409, 'Confirm your profile before matching jobs.');
-    const request = z.object({ consent: z.literal(true) }).safeParse(req.body || {});
-    if (!request.success) throw new ApiError(400, 'Consent to send your qualification fields and job descriptions to Gemini before matching.');
     const profile = JSON.parse(req.user.profile_json);
     if (!profile.skills.trim()) throw new ApiError(422, 'Add skills from your resume or profile before matching jobs.');
     const jobs = await jobProvider.getJobs({ skills: profile.skills });
-    const eligible = jobs.filter(job => (profile.mode === 'Any' || !profile.mode || job.mode === profile.mode)
-      && (profile.type === 'Any' || !profile.type || job.type === profile.type));
-    let matches = [];
-    if (eligible.length) {
-      try {
-        const { skills, experience, projects, education, certifications, title, location, mode, type } = profile;
-        matches = (await explain({ skills, experience, projects, education, certifications, title, location, mode, type }, eligible))
-          .filter(item => item.score > 0)
-          .map(item => ({ ...item, aiReasons: item.reasons, reasons: item.reasons }));
-      } catch (error) {
-        if (error instanceof ApiError) throw error;
-        console.warn('[Gemini matching] Unexpected error while matching jobs.');
-        throw new ApiError(502, 'Gemini matching failed. Please retry.');
-      }
+    const result = await rank(profile, jobs);
+    res.json({ jobs, ...result, sampleJobs: false });
+  });
+  app.post('/api/jobs/explain', async (req, res) => {
+    if (!req.user.confirmed) throw new ApiError(409, 'Confirm your profile first.');
+    const request = z.object({ consent: z.literal(true), jobId: z.string().min(1).max(200) }).safeParse(req.body);
+    if (!request.success) throw new ApiError(400, 'Select a job and consent separately to Gemini processing for its explanation.');
+    const profile = JSON.parse(req.user.profile_json);
+    const jobs = await jobProvider.getJobs({ skills: profile.skills });
+    const job = jobs.find(job => String(job.id) === request.data.jobId);
+    if (!job) throw new ApiError(404, 'Job is no longer available. Refresh the listings.');
+    try {
+      const [explanation] = await explain(profile, [job]);
+      res.json({ explanation });
+    } catch (error) {
+      if (error instanceof ApiError) throw error;
+      throw new ApiError(502, 'Gemini explanation failed. Please retry.');
     }
-
-    res.json({ jobs, matches, source: 'gemini', sampleJobs: false,
-      message: matches.length ? '' : eligible.length ? 'Gemini found no relevant matches for these listings.'
-        : 'No jobs match your work arrangement and employment type preferences.' });
   });
   app.use('/api', (req, res) => res.status(404).json({ error: 'API route not found.' }));
   app.use((error, req, res, next) => {

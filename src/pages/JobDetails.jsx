@@ -26,7 +26,7 @@ export default function JobDetails({ job, recommendation, onClose, onStart }) {
       <p>Source: {job.source}</p><h2>Description</h2>
       {job.descriptionIsSnippet && <p className="notice">The provider supplied a description excerpt. Open the original posting for the complete description.</p>}
       <p className="job-description">{job.description}</p>
-      <MatchExplanation recommendation={recommendation}/>
+      <MatchExplanation key={job.id} job={job} recommendation={recommendation}/>
       {url ? <a href={url} target="_blank" rel="noopener noreferrer">Open original posting ↗</a> : <p>No valid original posting link is available.</p>}
       <ApplyButton job={job} onStart={onStart}/>
     </section>

@@ -1,4 +1,4 @@
-// Keyword matching is the default and the fallback when Gemini is unavailable.
+// Deterministic keyword fallback when the local embedding runtime is unavailable.
 // Keep this formula aligned with the explanation shown in Discover:
 // 90 points for skill coverage + 5 for title + 5 for location.
 
@@ -45,6 +45,27 @@ function hasTerm(text, term) {
   return new RegExp(`(^|[^a-z0-9+#])${escaped}(?=$|[^a-z0-9+#])`, 'i').test(text);
 }
 
+// Quote source passages rather than inferring proficiency from a skill mention.
+export function buildMatchEvidence(profile, job, matched) {
+  const sections = [['experience', 'Experience'], ['projects', 'Projects'], ['certifications', 'Certifications'],
+    ['education', 'Education'], ['skills', 'Skills']];
+  function excerpt(text, aliases) {
+    const passage = qualificationText(text).split(/\n+|(?<=[.!?])\s+/)
+      .map(value => value.trim()).find(value => aliases.some(alias => hasTerm(normalize(value), alias)));
+    if (!passage) return '';
+    const index = Math.max(0, aliases.map(alias => normalize(passage).indexOf(alias)).filter(i => i >= 0).sort((a, b) => a - b)[0] || 0);
+    const start = Math.max(0, index - 100);
+    return `${start ? '…' : ''}${passage.slice(start, start + 300)}${passage.length > start + 300 ? '…' : ''}`;
+  }
+  return matched.slice(0, 6).map(skill => {
+    const aliases = skillAliases[skill] || [skill];
+    const source = sections.find(([field]) => excerpt(profile[field], aliases));
+    return { skill, profileSource: source?.[1] || 'Qualifications',
+      profileExcerpt: source ? excerpt(profile[source[0]], aliases) : '',
+      jobExcerpt: excerpt(job.description, aliases) || excerpt(job.title, aliases) };
+  });
+}
+
 function canonicalSkill(skill) {
   const normalized = normalize(skill);
   return Object.keys(skillAliases).find(key => skillAliases[key].includes(normalized)) || normalized;
@@ -81,7 +102,7 @@ export function rankJobs(profile = {}, jobs = []) {
     if (seenIds.has(idKey)) continue;
     seenIds.add(idKey);
     if (job.available === false || job.expired === true) continue;
-    if (!acceptsPreference(profile.mode, job.mode) || !acceptsPreference(profile.type, job.type)) continue;
+    if (!( !job.mode || preference(job.mode) === 'unknown' || acceptsPreference(profile.mode, job.mode)) || !acceptsPreference(profile.type, job.type)) continue;
 
     const skills = Array.isArray(job.skills) ? job.skills : [];
     const required = [...new Set(skills.filter(skill => typeof skill === 'string')
@@ -96,12 +117,15 @@ export function rankJobs(profile = {}, jobs = []) {
     const locationMatch = Boolean(location && hasTerm(normalize(job.location), location));
     const semanticScore = semanticSimilarity(qualifications, [job.title, job.description, ...(job.skills || [])].join('\n'));
     const keywordScore = 90 * matched.length / required.length + (titleMatch ? 5 : 0) + (locationMatch ? 5 : 0);
-    const score = Math.min(100, Math.round(keywordScore + (semanticScore * 10)));
+    const score = Math.min(100, Math.round(keywordScore));
 
     results.push({
       jobId: job.id, // Preserve the original type for existing numeric fixtures and string provider IDs.
       score,
       semanticScore: Math.round(semanticScore * 100) / 100,
+      coverage: matched.length / required.length,
+      warnings: !job.mode || preference(job.mode) === 'unknown' ? ['Work arrangement is unknown. Verify it in the original posting.'] : [],
+      evidence: buildMatchEvidence(profile, job, matched),
       matched,
       missing,
       reasons: [

@@ -7,9 +7,10 @@ export default function JobCard({ job, recommendation, onDetails, children }) {
     <span className="badge">{job.source || 'Sample listing'}</span>
     <h2>{job.title}</h2><p><strong>{job.company}</strong> · {job.location}</p>
     <div className="tags"><span>{job.mode}</span><span>{job.type}</span><span>{job.salary || 'Salary not provided'}</span></div>
+    {job.descriptionIsSnippet && <strong>Description excerpt</strong>}
     <p>{job.description}</p>
     {url && <a href={url} target="_blank" rel="noopener noreferrer">Original posting · {job.source} ↗</a>}
-    <MatchExplanation recommendation={recommendation}/>
+    <MatchExplanation key={job.id} job={job} recommendation={recommendation}/>
     <div className="actions">{onDetails && <button onClick={() => onDetails(job, recommendation)}>View details</button>}{children}</div>
   </article>;
 }

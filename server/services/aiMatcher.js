@@ -139,6 +139,15 @@ or protected characteristics. Give 1-5 concise reasons citing supplied evidence,
 up to 10 candidate skills or qualifications that are evidenced as matching the job,
 and at most 10 job requirements not evidenced in the profile. Include at least
 one reason explaining the strongest evidence for the fit (or the lack of it).
+For a selected-job explanation, develop each reason into 1-2 useful sentences:
+name a concrete profile example, connect it to a specific listing responsibility,
+and explain why the connection matters. Distinguish a listed skill from demonstrated
+project or work experience; never infer years, mastery, seniority, or credentials.
+Where supported, discuss transferable experience beyond exact skill overlap.
+Use a reason to identify a meaningful uncertainty or a requirement to verify,
+and suggest a concrete detail the candidate could clarify before applying.
+Do not disclose scoring formulas, weights, embeddings, or internal ranking mechanics.
+Do not repeat the score in the reasons or claim to change the existing ranking.
 An excerpt is incomplete:
 absence of a requirement from it is not evidence the full posting has no requirements.
 The score is a subjective fit estimate, not a hiring probability.`;

@@ -18,14 +18,13 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [consent, setConsent] = useState(false);
 
-  async function runGeminiMatching() {
+  async function runMatching() {
     setLoading(true); setError(''); setNotice('');
     setMatches(null);
-    onResults({ jobs, matches: [], source: 'gemini' });
+    onResults({ jobs, matches: [], source: 'pending' });
     try {
-      const result = await getMatches(consent);
+      const result = await getMatches();
       setMatches(result.matches); onResults(result);
       setNotice(result.message || '');
     } catch (err) { setError(err.message); }
@@ -58,9 +57,9 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
     <p>Swipe left to skip, right to save. Listings supplied by Adzuna.</p>
     <button type="button" disabled={saving || loading} onClick={onRefreshJobs}>Refresh Adzuna jobs</button>
     <div className="card">
-      <h2>Match jobs with Gemini reasoning</h2>
-      <p>Gemini compares your confirmed qualifications with each available job’s title, requirements, and description. It returns a fit estimate, specific evidence for the match, and requirements not found in your profile. Work arrangement and employment type filter jobs.</p>
-      <p className="muted">Your confirmed skill names are sent to Adzuna as alternative search terms. When you choose to match, your qualification fields and preferences, plus each job’s title, company, location, listed skills, and description, are sent to Google Gemini. Your name, email, and raw resume are excluded; personal details included in free-text fields may be sent.</p>
+      <h2>Find your strongest matches</h2>
+      <p>Compare your confirmed skills and experience with available job listings. Explore the evidence behind each match, review potential gaps, and request a deeper explanation when you want more context.</p>
+      <p className="muted">Your confirmed skill names are sent to Adzuna to search listings. Ranking does not send your profile to Gemini. Unknown work arrangements are retained; verify them in the original posting.</p>
       {confirmed && <div aria-label="Skills used for matching">
         <strong>Skills from your confirmed resume/profile</strong>
         {resumeSkills.length
@@ -68,16 +67,13 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
           : <p className="muted">No skills are saved. Add skills in your profile or review your resume information.</p>}
       </div>}
       {!confirmed && <p className="notice">Confirm your information first. <button onClick={onReview}>Review information</button></p>}
-      <label className="checkbox-label"><input type="checkbox" checked={consent} onChange={event => setConsent(event.target.checked)}/>
-        I agree to send my confirmed qualification fields and preferences, plus the listed job details, to Google Gemini for matching. Name/email fields and raw resume files are excluded. Remove personal details from free-text fields. Google’s applicable data-use terms apply.
-      </label>
-      <button className="primary" disabled={!confirmed || loading || saving || !consent || !jobs.length} onClick={runGeminiMatching}>
-        {loading ? 'Gemini is reasoning about your matches…' : 'Rank jobs with Gemini'}
+      <button className="primary" disabled={!confirmed || loading || saving || !jobs.length} onClick={runMatching}>
+        {loading ? 'Ranking jobs…' : 'Rank jobs'}
       </button>
-      <p className="muted">Scores are subjective fit estimates, not hiring probabilities. Adzuna descriptions may be excerpts; review the original posting and Gemini’s cited evidence.</p>
+      <p className="muted">Scores are subjective fit estimates, not hiring probabilities. Adzuna descriptions may be excerpts; review the original posting for full requirements.</p>
       {error && <p className="profile-error" role="alert">{error}</p>}
       {notice && <p className="notice" role="status">{notice}</p>}
-      {!matches && confirmed && !loading && jobs.length > 0 && <p className="muted">Agree to the data-sharing notice and rank jobs with Gemini to see recommendations.</p>}
+      {!matches && confirmed && !loading && jobs.length > 0 && <p className="muted">Rank jobs to see recommendations.</p>}
     </div>
     {confirmed && !loading && matches && !job && <div className="card">
       <h2>{matches.length ? 'You have reviewed all matches' : 'No matching jobs'}</h2>

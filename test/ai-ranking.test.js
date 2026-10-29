@@ -59,7 +59,7 @@ test('#55 rejects duplicate, incomplete and out-of-range AI results', async () =
   }
 });
 
-test('#55 can rank a relevant job even without exact keyword overlap', async t => {
+test('#55 selected-job explanation requires separate consent and supports contextual evidence', async t => {
   const batch = [{ ...jobs[0], id: 'semantic-job', description: 'Build software with C++.', skills: ['C++'] }];
   const store = openStore(':memory:');
   const server = createApp({ store, jobProvider: { getJobs: async () => batch },
@@ -79,14 +79,13 @@ test('#55 can rank a relevant job even without exact keyword overlap', async t =
   }
   await post('/api/auth/register', { name: 'Alex', email: 'semantic@example.org', password: 'long-test-password' });
   await post('/api/profile/confirm', { confirmed: true, profile: { ...emptyProfile, name: 'Alex', email: 'semantic@example.org', skills: 'SQL' } });
-  const noConsent = await fetch(base + '/api/jobs/match', { method: 'POST',
-    headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ consent: false }) });
+  const noConsent = await fetch(base + '/api/jobs/explain', { method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' }, body: JSON.stringify({ consent: false, jobId: 'semantic-job' }) });
   assert.equal(noConsent.status, 400);
-  const result = await post('/api/jobs/match', { consent: true });
-  assert.equal(result.source, 'gemini');
-  assert.equal(result.matches[0].jobId, 'semantic-job');
-  assert.equal(result.matches[0].score, 82);
-  assert.deepEqual(result.matches[0].matched, ['SQL database experience']);
-  assert.deepEqual(result.matches[0].missing, ['C++']);
-  assert.deepEqual(result.matches[0].aiReasons, ['Transferable programming experience']);
+  const result = await post('/api/jobs/explain', { consent: true, jobId: 'semantic-job' });
+  assert.equal(result.explanation.jobId, 'semantic-job');
+  assert.equal(result.explanation.score, 82);
+  assert.deepEqual(result.explanation.matched, ['SQL database experience']);
+  assert.deepEqual(result.explanation.missing, ['C++']);
+  assert.deepEqual(result.explanation.reasons, ['Transferable programming experience']);
 });

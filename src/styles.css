@@ -511,3 +511,9 @@ textarea { line-height: 1.6; }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+.evidence-grid { display: grid; gap: 12px; margin: 16px 0; }
+.evidence-item { padding: 14px 16px; border: 1px solid var(--border, #cbd5e1); border-radius: 10px; }
+.evidence-item p { margin: 8px 0 0; overflow-wrap: anywhere; }
+.deeper-insights { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--border, #cbd5e1); }
+.match-explanation li { margin-bottom: 10px; }

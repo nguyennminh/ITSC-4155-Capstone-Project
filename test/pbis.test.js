@@ -142,7 +142,7 @@ test('#10/#11 drafts and confirmed edits persist through logout and database res
   await call('/api/auth/login', { email: 'return@example.com', password });
   assert.deepEqual((await call('/api/profile')).data.user.profile, edited);
   const noConsent = await call('/api/jobs/match', {});
-  assert.equal(noConsent.status, 400);
+  assert.equal(noConsent.status, 200);
 });
 test('#14 matching ignores client qualifications, handles empty data and Gemini failure without modifying profiles', async t => {
   let searchedSkills;
@@ -154,9 +154,9 @@ test('#14 matching ignores client qualifications, handles empty data and Gemini 
   await confirm(call, { ...profile, skills: 'Python, SQL' });
   const before = (await call('/api/profile')).data.user.profile;
   const first = await call('/api/jobs/match', { consent: false, profile: { skills: 'React' } });
-  assert.equal(first.status, 400);
-  const extra = await call('/api/jobs/match', { consent: true });
-  assert.equal(extra.status, 502); assert.match(extra.data.error, /Gemini matching failed/);
+  assert.equal(first.status, 200);
+  const extra = await call('/api/jobs/explain', { consent: true, jobId: String(jobs[0].id) });
+  assert.equal(extra.status, 502); assert.match(extra.data.error, /Gemini explanation failed/);
   assert.equal(searchedSkills, 'Python, SQL');
   assert.deepEqual((await call('/api/profile')).data.user.profile, before);
   await confirm(call, { ...profile, skills: '', experience: '', education: '', certifications: '' });

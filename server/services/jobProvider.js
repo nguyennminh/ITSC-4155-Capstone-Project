@@ -30,11 +30,14 @@ export function normalizeJobs(rows, candidateSkills = []) {
       skills: jobSkills, created: row.created || '', available: true }];
   });
 }
-export function createJobProvider({ fetchImpl = fetch, appId = process.env.ADZUNA_APP_ID, appKey = process.env.ADZUNA_APP_KEY, now = Date.now } = {}) {
+export function createJobProvider({ fetchImpl = fetch, appId = process.env.ADZUNA_APP_ID, appKey = process.env.ADZUNA_APP_KEY, now = Date.now, pages = process.env.ADZUNA_PAGES || 1 } = {}) {
+  const pageCount = Math.min(3, Math.max(1, Math.trunc(Number(pages)) || 1));
   let cached = null;
   const pending = new Map();
   async function load(what, candidateSkills) {
-    const url = new URL('https://api.adzuna.com/v1/api/jobs/us/search/1');
+    const rows = [];
+    for (let page = 1; page <= pageCount; page++) {
+    const url = new URL(`https://api.adzuna.com/v1/api/jobs/us/search/${page}`);
     url.search = new URLSearchParams({ app_id: appId, app_key: appKey, results_per_page: '20', what_or: what, ...(process.env.JOBS_LOCATION ? { where: process.env.JOBS_LOCATION } : {}) }).toString();
     let response;
     try { response = await fetchImpl(url, { signal: AbortSignal.timeout(15000) }); }
@@ -43,7 +46,10 @@ export function createJobProvider({ fetchImpl = fetch, appId = process.env.ADZUN
     let data;
     try { data = await response.json(); } catch { throw new ApiError(502, 'Job provider returned invalid JSON.'); }
     if (!Array.isArray(data.results)) throw new ApiError(502, 'Job provider returned an unexpected response.');
-    return normalizeJobs(data.results.slice(0,20), candidateSkills);
+    rows.push(...data.results.slice(0,20));
+    if (data.results.length < 20) break;
+    }
+    return normalizeJobs(rows, candidateSkills);
   }
   return { async getJobs({ skills = '', refresh = false } = {}) {
     if (!appId || !appKey) throw new ApiError(503, 'Add ADZUNA_APP_ID and ADZUNA_APP_KEY to the server .env and restart.');

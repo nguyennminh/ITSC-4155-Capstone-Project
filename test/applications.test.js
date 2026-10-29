@@ -30,10 +30,10 @@ test('#12/#16/#55 authenticated application tracking and Gemini ranking/failure 
   await a('/api/auth/register',{name:'Alex',email:'a@example.org',password:'long-password-123'});
   await b('/api/auth/register',{name:'Sam',email:'b@example.org',password:'long-password-123'});
   await a('/api/profile/confirm',{confirmed:true,profile:{...emptyProfile,name:'Alex',email:'a@example.org',skills:'React'}});
-  const noConsent=await a('/api/jobs/match',{consent:false});assert.equal(noConsent.status,400);
-  const ai=await a('/api/jobs/match',{consent:true});assert.equal(ai.data.source,'gemini');assert.equal(ai.data.matches[0].score,88);
-  assert.deepEqual(ai.data.matches[0].matched,['React']);assert.deepEqual(ai.data.matches[0].missing,['SQL']);
-  fail=true;const failure=await a('/api/jobs/match',{consent:true});assert.equal(failure.status,502);assert.match(failure.data.error,/Gemini matching failed/);
+  const noConsent=await a('/api/jobs/explain',{consent:false,jobId:String(jobs[0].id)});assert.equal(noConsent.status,400);
+  const ai=await a('/api/jobs/explain',{consent:true,jobId:String(jobs[0].id)});assert.equal(ai.data.explanation.score,88);
+  assert.deepEqual(ai.data.explanation.matched,['React']);assert.deepEqual(ai.data.explanation.missing,['SQL']);
+  fail=true;const failure=await a('/api/jobs/explain',{consent:true,jobId:String(jobs[0].id)});assert.equal(failure.status,502);assert.match(failure.data.error,/Gemini explanation failed/);
   assert.equal((await a('/api/applications/start',{jobId:'missing'})).status,404);
   await a('/api/applications/start',{jobId:jobs[0].id});await a('/api/applications/start',{jobId:jobs[0].id});
   assert.equal((await a('/api/applications')).data.applications.length,1);assert.equal((await b('/api/applications')).data.applications.length,0);

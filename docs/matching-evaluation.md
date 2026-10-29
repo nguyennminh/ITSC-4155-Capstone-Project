@@ -1,25 +1,32 @@
-# Matching evaluation
+# Matching
 
-The production matcher keeps the existing explainable skill-coverage score and
-adds a bounded semantic similarity feature over the confirmed qualifications,
-job title, description, and listed skills. The result exposes `semanticScore`,
-`matched`, `missing`, and evidence reasons. Missing resume sections produce an
-empty qualification string and therefore do not invent matches.
+Request-time ranking uses quantized (`q8`) Xenova/all-MiniLM-L6-v2 with mean
+pooling and normalized vectors on the server. The first request downloads model
+artifacts; subsequent requests reuse them. Only jobs with an evidenced listed
+skill match qualify. Scores combine 60% listed skill coverage and 40% cosine
+similarity (clamped to 0–1). These are fit estimates, not hiring probabilities.
 
-## Evaluation protocol
+Embeddings use a bounded, process-local cache (2,000 entries), keyed by model
+artifact revision, quantization and SHA-256 of the exact input text. Concurrent
+requests reuse pending embeddings; failed embeddings are removed. Restarting
+the server clears this cache. No profile text is sent to a model API for ranking.
 
-Use the same labeled resume-job pairs for both systems. The baseline is the
-keyword-only score; the candidate is the keyword score plus description-aware
-semantic similarity. Report Precision@5 and nDCG@5 for each profile, then the
-macro average. The ranking implementation is deterministic, so the fixture can
-be replayed in CI without network access.
+If model loading or inference fails, matching automatically uses deterministic
+keyword coverage: 90 points for skill coverage, 5 for preferred title and 5 for
+location. The API and Discover show the fallback. Unknown work arrangements
+remain eligible with a warning; known incompatible arrangements are excluded.
+Employment type preferences still filter jobs.
 
-Sentence-BERT evaluation is intentionally separate from request-time matching:
-the recommended pretrained model is `sentence-transformers/all-MiniLM-L6-v2`.
-Run the offline benchmark in the model-evaluation environment, record the
-model version and dataset hash here, and promote it only if its macro nDCG@5
-beats the candidate matcher without unacceptable latency or data-transfer
-cost. No model weights or user resume text are committed to this repository.
+Gemini is optional via `/api/jobs/explain`, requires separate explicit consent,
+and receives one selected listing plus allowlisted qualification fields and
+preferences. It does not change ranking. Name/email fields and raw resumes are
+excluded, but personal information in qualification text may be transmitted.
 
-The current Node matcher remains the privacy-preserving fallback when the
-optional model evaluation/runtime is unavailable.
+Set `ADZUNA_PAGES=1`, `2` or `3` on the server (default 1; values are clamped to
+1–3). Each page requests 20 results. Fetching stops on a short page, deduplicates
+across all pages, and caches the combined listings for ten minutes. Descriptions
+are provider excerpts; consult the original posting for full requirements.
+
+Run `node --test test/local-matcher.test.js test/provider.test.js` for deterministic
+runtime/cache/fallback/pagination checks using an injected encoder. A real-model
+smoke test also requires network access for the initial model download.
