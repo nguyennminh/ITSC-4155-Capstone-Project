@@ -1,0 +1,253 @@
+/* Prevent viewport overflow and make media/content shrink naturally. */
+html {
+  width: 100%;
+  overflow-x: clip;
+  -webkit-text-size-adjust: 100%;
+}
+
+body,
+#root {
+  width: 100%;
+  min-height: 100%;
+}
+
+#root,
+main,
+section,
+article,
+aside,
+form,
+fieldset,
+.container,
+.card {
+  min-width: 0;
+}
+
+img,
+video,
+canvas,
+svg {
+  max-width: 100%;
+}
+
+pre,
+code {
+  overflow-wrap: anywhere;
+}
+
+pre {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+table {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Fluid desktop layout. */
+.container {
+  width: 100%;
+  max-width: 1150px;
+  margin-inline: auto;
+}
+
+.two-columns,
+.job-grid,
+.profile-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.two-columns > *,
+.job-grid > *,
+.profile-grid > *,
+.login-layout > * {
+  min-width: 0;
+}
+
+/* Medium screens and tablets. */
+@media (max-width: 900px) {
+  .container {
+    max-width: 100%;
+  }
+
+  .navigation {
+    flex-wrap: wrap;
+    padding-inline: clamp(1rem, 3vw, 2rem);
+  }
+
+  .navigation nav {
+    min-width: 0;
+    flex-wrap: wrap;
+  }
+
+  .login-layout {
+    max-width: 100%;
+    gap: clamp(1rem, 3vw, 2rem);
+  }
+
+  .two-columns,
+  .job-grid {
+    gap: 1rem;
+  }
+
+  .profile-page {
+    max-width: 100%;
+  }
+
+  .details-overlay {
+    padding: 1rem;
+  }
+}
+
+/* Phones and small tablets. */
+@media (max-width: 700px) {
+  .two-columns,
+  .job-grid,
+  .profile-grid,
+  .login-layout {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .navigation {
+    flex-direction: row;
+    align-items: center;
+    gap: 0.75rem;
+  }
+
+  .navigation nav {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0.4rem;
+  }
+
+  .navigation nav button {
+    width: 100%;
+    min-width: 0;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  .container {
+    padding: 1rem;
+  }
+
+  .login-layout {
+    min-height: auto;
+    padding: 1rem;
+  }
+
+  .login-layout h1 {
+    font-size: clamp(1.8rem, 7vw, 2.2rem);
+  }
+
+  .card,
+  .profile-panel {
+    padding: 1rem;
+  }
+
+  .row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .filters {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .filters label {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .actions,
+  .profile-actions {
+    align-items: stretch;
+  }
+
+  .actions > button,
+  .profile-actions > button {
+    flex: 1 1 140px;
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .profile-page {
+    padding: 0.5rem 0;
+  }
+
+  .profile-panel {
+    margin-top: 1rem;
+  }
+
+  .swipe-surface {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .details-overlay {
+    padding: 0.5rem;
+  }
+
+  .details-panel {
+    width: 100%;
+    max-width: 100%;
+  }
+
+  .dropzone {
+    padding: 1rem;
+  }
+}
+
+/* Very narrow phones. */
+@media (max-width: 400px) {
+  :root {
+    font-size: 14px;
+  }
+
+  .navigation nav {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .container {
+    padding: 0.75rem;
+  }
+
+  .card,
+  .profile-panel {
+    padding: 0.85rem;
+    border-radius: 10px;
+  }
+
+  button {
+    max-width: 100%;
+  }
+
+  .tags {
+    gap: 0.35rem;
+  }
+}
+
+/* Short landscape screens: avoid forcing full-screen login height. */
+@media (max-height: 500px) and (orientation: landscape) {
+  .login-layout {
+    min-height: auto;
+    padding-block: 1rem;
+  }
+}
+
+/* Respect users who prefer reduced motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
