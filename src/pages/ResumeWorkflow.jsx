@@ -70,11 +70,12 @@ export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel, o
     <h1>Upload and parse your resume</h1>
     <p>Choose a PDF or DOCX, extract its text, then review the fields before saving.</p>
     {draft && <p className="notice">An unfinished parsed resume is saved to your account: {draft.resumeName}. <button onClick={() => setResult(draft)}>Resume saved review</button></p>}
-    <ResumeUpload resume={file} savedResume={savedResume} onResumeChange={changeFile} onRemoveSaved={removeSaved}/>
+    <ResumeUpload resume={file} savedResume={savedResume} onResumeChange={changeFile} onRemoveSaved={removeSaved}>
+      <button type="button" disabled={loading} onClick={() => setResult({ fields: {}, rawText: '', warnings: [] })}>Enter details manually</button>
+    </ResumeUpload>
     <p className="muted">Parsing uploads the file to JobSwipe. The original resume and extracted text are saved privately to your account for review. Scanned PDFs are not supported.</p>
     <div className="actions">
       <button className="primary" disabled={!file || loading} onClick={parse}>{loading ? 'Parsing…' : 'Parse resume'}</button>
-      <button disabled={loading} onClick={() => setResult({ fields: {}, rawText: '', warnings: [] })}>Enter details manually</button>
       <button onClick={onCancel}>Cancel</button>
     </div>
     {loading && <p role="status">Reading your resume. This can take a few seconds.</p>}

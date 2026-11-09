@@ -659,3 +659,50 @@ textarea { line-height: 1.6; }
   .swipe-target strong { font-size: 1.4rem; }
   .swipe-target span { max-width: 110px; font-size: .85rem; }
 }
+
+.resume-dropzone {
+  margin-top: 20px;
+  padding: 40px 20px;
+  border: 2px dashed #087f83;
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+}
+
+.resume-dropzone.is-drag-active {
+  background: #e8f3f3;
+  color: #163b3c;
+}
+
+.resume-dropzone:focus-visible {
+  outline: 3px solid #087f83;
+  outline-offset: 3px;
+}
+
+.resume-preview {
+  display: block;
+  width: 100%;
+  height: min(65vh, 640px);
+  margin-top: 16px;
+  border: 0;
+  background: white;
+}
+
+.resume-alternative {
+  text-align: center;
+}
+
+.resume-divider {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  margin: 24px 0;
+}
+
+.resume-divider::before,
+.resume-divider::after {
+  content: '';
+  flex: 1;
+  border-top: 1px solid currentColor;
+  opacity: 0.25;
+}

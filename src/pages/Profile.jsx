@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import ResumeEntryEditor from "../components/ResumeEntryEditor.jsx";
 import { normalizeProfile, entryText } from "../data/profileFields.js";
+import { useDropzone } from "react-dropzone";
 
 
 export default function Profile({
