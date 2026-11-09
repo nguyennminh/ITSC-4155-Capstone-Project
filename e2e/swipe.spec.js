@@ -23,7 +23,7 @@ test('save failure retains the card; retry saves once; skips survive navigation'
   await page.keyboard.press('ArrowRight');
   await expect(page.locator('.job-card h2')).not.toHaveText('Frontend Developer');
   await page.getByRole('button',{name:'Skip',exact:true}).click();
-  await page.getByRole('button',{name:'Saved Jobs',exact:true}).click();
+  await page.getByRole('button',{name:'Saved',exact:true}).click();
   await expect(page.locator('.job-card h2')).toHaveText('Frontend Developer');
   await page.getByRole('button',{name:'Discover',exact:true}).click();
   await page.getByRole('checkbox').check();
@@ -62,10 +62,12 @@ test('skip history and saved listings stay with the authenticated account',async
   await expect(page.locator('.job-card h2')).toHaveText('Junior Software Engineer');
   await page.getByRole('button',{name:'Save job',exact:true}).click();
   await expect(page.locator('.job-card h2')).toHaveText('Data Engineering Intern');
+  if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await setup(page);
-  await page.getByRole('button',{name:'Saved Jobs',exact:true}).click();
+  await page.getByRole('button',{name:'Saved',exact:true}).click();
   await expect(page.locator('.job-card')).toHaveCount(0);
+  if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
   await page.getByRole('button',{name:'Sign out',exact:true}).click();
   await page.getByLabel('Email',{exact:true}).fill(firstEmail);
   await page.getByLabel('Password',{exact:true}).fill('swipe-test-password');

@@ -54,10 +54,8 @@ export default function ResumeUpload({ resume, savedResume, onResumeChange, onRe
         Uploaded resumes are saved privately to your account.
       </p>
 
-      {!currentResume && (
-        <DropzoneUploader ref={uploaderRef} visible={!currentResume}
-          onFileAccepted={onResumeChange} onError={setError} />
-      )}
+      <DropzoneUploader ref={uploaderRef} visible={!currentResume}
+        onFileAccepted={onResumeChange} onError={setError} />
 
       {currentResume && (
         <div className="resume-details">

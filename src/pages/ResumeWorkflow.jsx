@@ -32,16 +32,19 @@ export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel, o
     setFile(nextFile);
     setResult(null);
     setError('');
+    if (nextFile && /\.pdf$/i.test(nextFile.name)) parse(nextFile);
   }
-  async function parse() {
+  async function parse(selectedFile) {
+    if (!selectedFile) return;
+    controller.current?.abort();
     const request = new AbortController();
     controller.current = request;
     setLoading(true);
     setError('');
     try {
-      const parsed = await parseResume(file, request.signal);
+      const parsed = await parseResume(selectedFile, request.signal);
       if (!request.signal.aborted) {
-        setSavedResume({ name: parsed.resumeName, size: file.size });
+        setSavedResume({ name: parsed.resumeName, size: selectedFile.size });
         setResult(parsed);
       }
     } catch (err) {
@@ -67,15 +70,15 @@ export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel, o
     onConfirm={updated => onConfirm(updated, file)}
   />;
   return <section>
-    <h1>Upload and parse your resume</h1>
-    <p>Choose a PDF or DOCX, extract its text, then review the fields before saving.</p>
+    <h1>Upload your resume</h1>
+    <p>Choose a PDF to upload and parse automatically, then review the fields before saving. DOCX files can be parsed using the button below.</p>
     {draft && <p className="notice">An unfinished parsed resume is saved to your account: {draft.resumeName}. <button onClick={() => setResult(draft)}>Resume saved review</button></p>}
     <ResumeUpload resume={file} savedResume={savedResume} onResumeChange={changeFile} onRemoveSaved={removeSaved}>
       <button type="button" disabled={loading} onClick={() => setResult({ fields: {}, rawText: '', warnings: [] })}>Enter details manually</button>
     </ResumeUpload>
     <p className="muted">Parsing uploads the file to JobSwipe. The original resume and extracted text are saved privately to your account for review. Scanned PDFs are not supported.</p>
     <div className="actions">
-      <button className="primary" disabled={!file || loading} onClick={parse}>{loading ? 'Parsing…' : 'Parse resume'}</button>
+      <button className="primary" disabled={!file || loading} onClick={() => parse(file)}>{loading ? 'Parsing…' : 'Parse resume'}</button>
       <button onClick={onCancel}>Cancel</button>
     </div>
     {loading && <p role="status">Reading your resume. This can take a few seconds.</p>}

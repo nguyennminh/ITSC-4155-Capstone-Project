@@ -14,7 +14,7 @@ async function register(page, role = 'Job seeker') {
   const created = page.waitForResponse(response => response.url().endsWith('/api/auth/register'));
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   expect((await created).status()).toBe(201);
-  await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Account options', exact: true })).toBeVisible();
   return email;
 }
 
@@ -38,28 +38,31 @@ test('form validation gives accessible errors without submitting invalid fields'
 
 test('expired sessions return to login and allow signing in again', async ({ page, context }) => {
   const email = await register(page);
-  await expect(page.getByRole('heading', { name: 'Upload and parse your resume' })).toBeVisible();
-  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /Upload (and parse )?your resume/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click();
   await expect(page.getByLabel('Full name *', { exact: true })).toHaveValue('Alex Student');
   await context.clearCookies();
   await page.getByRole('button', { name: 'Save and confirm changes', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   await expect(page.getByRole('status')).toHaveText('Your session has expired. Please sign in again.');
-  await expect(page.getByRole('button', { name: 'Profile', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Preferences', exact: true })).toHaveCount(0);
   await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Upload and parse your resume' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: /Upload (and parse )?your resume/ })).toBeVisible();
   await expect(page.getByText('Your session has expired. Please sign in again.')).toHaveCount(0);
 });
 
 test('failed logout displays a retryable error and preserves the signed-in view', async ({ page }) => {
   await register(page, 'Recruiter');
   await page.route('**/api/auth/logout', route => route.abort());
+  if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('status')).toHaveText('Could not connect to JobSwipe. Please try again.');
+  if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeEnabled();
   await page.unroute('**/api/auth/logout');
+  if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
 });
@@ -67,9 +70,10 @@ test('failed logout displays a retryable error and preserves the signed-in view'
 test('register, reload, logout and log back in to the same personal account', async ({ page, context }) => {
   const email = await register(page);
   await page.reload();
-  await expect(page.getByRole('heading', { name: 'Upload and parse your resume' })).toBeVisible();
-  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await expect(page.getByRole('heading', { name: /Upload (and parse )?your resume/ })).toBeVisible();
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click();
   await expect(page.getByLabel('Full name *', { exact: true })).toHaveValue('Alex Student');
+  if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   expect((await context.cookies()).some(cookie => cookie.name === 'jobswipe_session')).toBe(false);
@@ -79,7 +83,7 @@ test('register, reload, logout and log back in to the same personal account', as
   await page.getByLabel('Email', { exact: true }).fill(email.toUpperCase());
   await page.getByLabel('Password', { exact: true }).fill(password);
   await page.getByRole('button', { name: 'Sign in', exact: true }).click();
-  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click();
   await expect(page.getByLabel('Full name *', { exact: true })).toHaveValue('Alex Student');
   await expect(page.getByLabel('Email', { exact: true })).toHaveValue(email);
 });
@@ -87,6 +91,7 @@ test('register, reload, logout and log back in to the same personal account', as
 test('duplicate registration and incorrect credentials show errors and allow recovery', async ({ page }) => {
   const email = await register(page, 'Recruiter');
   await expect(page.getByRole('heading', { name: 'Applicant dashboard' })).toBeVisible();
+  if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
   await page.getByRole('button', { name: 'Sign out', exact: true }).click();
   await page.getByRole('button', { name: 'Create an account', exact: true }).click();
   await page.getByLabel('Name', { exact: true }).fill('Duplicate');
@@ -139,7 +144,7 @@ test('pending registration disables input and prevents duplicate submissions', a
   await page.locator('form').evaluate(form => { form.requestSubmit(); form.requestSubmit(); });
   await expect.poll(() => submissions).toBe(1);
   release();
-  await expect(page.getByRole('button', { name: 'Sign out', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Account options', exact: true })).toBeVisible();
 });
 
 test('session restoration connection failures offer a working retry', async ({ page }) => {

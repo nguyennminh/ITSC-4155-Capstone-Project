@@ -1,0 +1,69 @@
+.app-layout {
+  display: grid;
+  grid-template-columns: 248px minmax(0, 1fr);
+  min-height: 100dvh;
+}
+.app-layout > .container { min-width: 0; align-self: start; }
+.sidebar {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2.5rem;
+  height: 100dvh;
+  overflow-y: auto;
+  padding: 2rem 1rem 1rem;
+  background: var(--surface);
+  color: var(--ink);
+  border-right: 1px solid var(--border);
+}
+.sidebar .brand { padding-inline: .5rem; font-size: 1.5rem; }
+.sidebar nav { display: grid; gap: .5rem; }
+.sidebar button {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  width: 100%;
+  padding: .8rem .75rem;
+  text-align: left;
+  background: transparent;
+  color: var(--muted);
+  border: 1px solid transparent;
+  border-radius: 10px;
+}
+.sidebar button svg { flex-shrink: 0; }
+.sidebar button:hover:not(:disabled),
+.sidebar button.active,
+.sidebar button.active:hover:not(:disabled) {
+  color: var(--accent-dark);
+  background: var(--soft);
+  border-color: transparent;
+}
+.sidebar .saved-count {
+  margin-left: auto;
+  padding: 0 .5rem;
+  border-radius: 6px;
+  background: var(--soft);
+  color: var(--accent-dark);
+  font-size: .75rem;
+  font-style: normal;
+}
+.sidebar-bottom { margin-top: auto; display: grid; gap: 1rem; }
+.sidebar-account { position: relative; min-width: 0; }
+.sidebar .user-card { border-top: 1px solid var(--border); border-radius: 0; padding: 1rem 0 0; gap: .5rem; color: var(--ink); }
+.avatar { display: grid; place-items: center; flex: 0 0 36px; height: 36px; border-radius: 50%; background: var(--soft); color: var(--accent-dark); font-size: .8rem; }
+.user-details { flex: 1; min-width: 0; }
+.user-details b, .user-details small { display: block; overflow-wrap: anywhere; line-height: 1.5; }
+.user-details b { font-size: .8rem; }
+.user-details small { font-size: .7rem; font-weight: 400; color: var(--muted); }
+.account-options { position: absolute; bottom: calc(100% + .5rem); left: 0; right: 0; z-index: 10; padding: .4rem; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; box-shadow: 0 8px 24px #0002; }
+@media (max-width: 899px) {
+  .app-layout { grid-template-columns: minmax(0, 1fr); }
+  .sidebar { position: relative; height: auto; overflow: visible; gap: 1rem; padding: 1rem; border-right: 0; border-bottom: 1px solid var(--border); }
+  .sidebar nav { display: flex; flex-wrap: wrap; gap: .25rem; }
+  .sidebar nav button { width: auto; flex: 1 1 auto; justify-content: center; gap: .5rem; padding-inline: .5rem; }
+  .sidebar-bottom { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); align-items: center; gap: .5rem; }
+  .sidebar .user-card { border: 0; padding: .5rem 0; }
+  .sidebar .user-card > svg { display: none; }
+  .account-options { bottom: auto; top: calc(100% + .5rem); }
+}

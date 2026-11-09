@@ -258,13 +258,16 @@ export default function App() {
   const renderVersion = accountVersion.current;
 
   return (
-    <>
+    <div className="app-layout">
       <Navigation
         page={page}
         navigate={navigate}
         role={role}
         logout={logout}
         logoutBusy={logoutBusy}
+        profile={profile}
+        savedCount={saved.length}
+        inert={detail ? true : undefined}
       />
 
       {detail && <JobDetails {...detail} onClose={closeDetails} onStart={apply}/>}
@@ -359,6 +362,6 @@ export default function App() {
 
         {page === "recruiter" && <Recruiter />}
       </div>
-    </>
+    </div>
   );
 }

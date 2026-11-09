@@ -93,23 +93,7 @@ textarea {
   resize: vertical;
 }
 
-/* Navigation */
-
-.navigation {
-  display: flex;
-  align-items: center;
-  gap: 1.5rem;
-  padding: 1rem 4%;
-  background: white;
-  border-bottom: 1px solid #dce4eb;
-}
-
-.navigation nav {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.5rem;
-  flex: 1;
-}
+/* Brand */
 
 .brand {
   display: flex;
@@ -365,11 +349,6 @@ small,
 /* Mobile layouts */
 
 @media (max-width: 700px) {
-  .navigation {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 0.6rem;
-  }
 
   .login-layout,
   .two-columns,
@@ -465,9 +444,7 @@ input, textarea, select { min-height: 44px; border-color: #a1b7bd; border-radius
 input:disabled, textarea:disabled, select:disabled { background: #eff3f4; }
 input[type="checkbox"] { min-height: auto; width: 20px; height: 20px; accent-color: var(--accent); }
 textarea { line-height: 1.6; }
-.navigation { gap: 1rem; padding: 1rem max(4%, calc((100vw - 1100px) / 2)); border-color: var(--border); }
-.navigation nav { min-width: 0; }
-.navigation nav button { border-color: transparent; }
+
 .brand { color: var(--accent-dark); letter-spacing: -.06em; font-weight: 800; white-space: nowrap; }
 .container { width: 100%; max-width: 1150px; padding: clamp(1rem, 3vw, 2rem); }
 .card, .profile-panel { border-color: var(--border); border-radius: 16px; box-shadow: 0 5px 20px #15374306; }
@@ -504,15 +481,11 @@ textarea { line-height: 1.6; }
 .danger-zone { border-color: #e9c5bf; }
 .danger-zone .secondary-button { color: #9d251a; border-color: #d2a39a; }
 @media (max-width: 850px) {
-  .navigation { flex-wrap: wrap; }
-  .navigation nav { flex-basis: 100%; order: 3; }
-  .navigation > button { margin-left: auto; }
+
   .login-layout { gap: 1.5rem; }
 }
 @media (max-width: 700px) {
-  .navigation { flex-direction: row; align-items: center; }
-  .navigation nav { width: 100%; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
-  .navigation nav button { width: 100%; padding: .6rem .4rem; }
+
   .login-layout { grid-template-columns: 1fr; }
   .login-layout h1 { font-size: 2rem; }
   .actions, .profile-actions { align-items: stretch; }
@@ -530,7 +503,6 @@ textarea { line-height: 1.6; }
 .evidence-item p { margin: 8px 0 0; overflow-wrap: anywhere; }
 .deeper-insights { margin: 20px 0; padding-top: 16px; border-top: 1px solid var(--border, #cbd5e1); }
 .match-explanation li { margin-bottom: 10px; }
-
 
 /* Dark mode */
 
@@ -560,7 +532,6 @@ textarea { line-height: 1.6; }
   color: var(--ink);
 }
 
-[data-theme="dark"] .navigation,
 [data-theme="dark"] .card,
 [data-theme="dark"] .profile-panel,
 [data-theme="dark"] .resume-entry,

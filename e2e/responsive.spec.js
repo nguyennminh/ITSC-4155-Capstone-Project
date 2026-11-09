@@ -11,7 +11,7 @@ for (const width of [320,390,768,1280]) test(`main pages fit at ${width}px`,asyn
   await page.request.post('/api/saved-jobs',{data:{jobId:'3'}});
   await page.request.post('/api/applications/start',{data:{jobId:'1'}});
   await page.reload();
-  for (const name of ['Profile','Saved Jobs','Applications','Discover']) {
+  for (const name of ['Preferences','Saved','Applications','Discover']) {
     await page.getByRole('button',{name,exact:true}).click();
     await expect(page.locator('h1')).toBeVisible(); await fits();
     const navigationButton = page.getByRole('button',{name,exact:true});
@@ -19,14 +19,14 @@ for (const width of [320,390,768,1280]) test(`main pages fit at ${width}px`,asyn
     await page.keyboard.press('Tab');
     const keyboardTarget=page.locator(':focus');await expect(keyboardTarget).toBeVisible();
     expect(await keyboardTarget.evaluate(element => { const style=getComputedStyle(element); return style.outlineStyle !== 'none' && parseFloat(style.outlineWidth)>0; })).toBe(true);
-    if (name==='Saved Jobs') await expect(page.locator('.job-card')).toHaveCount(1);
+    if (name==='Saved') await expect(page.locator('.job-card')).toHaveCount(1);
     if (name==='Applications') await expect(page.getByLabel('Status')).toHaveValue('Started');
   }
-  await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Rank jobs with Gemini'}).click();
+  await page.getByRole('button',{name:'Rank jobs',exact:true}).click();
   await expect(page.locator('.job-card')).toBeVisible(); await fits();
   await page.getByRole('button',{name:'View details'}).click();await expect(page.getByRole('dialog')).toBeVisible();await fits();
   await page.keyboard.press('Escape');
-  await page.getByRole('button',{name:'Profile',exact:true}).click();
+  await page.getByRole('button',{name:'Preferences',exact:true}).click();
   await page.getByRole('button',{name:'Parse / review resume information'}).click();
   await page.getByLabel('Select your resume').setInputFiles('test/fixtures/resume.docx');
   await page.getByRole('button',{name:'Parse resume',exact:true}).click();
