@@ -15,16 +15,46 @@ browser. Resume files (PDF/DOCX, up to 10 MB) are stored privately with the acco
 downloaded while signed in, and can be deleted. Removing a saved job deletes that user's
 saved-job record.
 
-For local development, the server uses SQLite at `server/data/jobswipe.sqlite` by default.
-When `MONGODB_URI` is set, it uses MongoDB instead. Production startup refuses to use
-SQLite, so a deployment cannot silently fall back to an ephemeral local database. Database
-read/write failures are logged by the server and returned as a retryable API error.
+JobSwipe uses MongoDB for local development and production. The server requires
+`MONGODB_URI` and starts listening only after connecting and checking its indexes.
+Startup logs distinguish the MongoDB connection step from the HTTP server becoming
+ready. Automated tests can inject an isolated SQLite fixture without connecting to
+the team's database. Existing local SQLite files are not migrated by this change.
 
 ## Deploy on Render
 
 The included `render.yaml` builds the Vite frontend and serves it with the Express API from
 one Render web service. Persistent records are stored in MongoDB Atlas; the Render service's
 local filesystem is not used as the production database.
+
+MiniLM is prepared during the Render build and warmed in a worker thread after the
+HTTP server starts. Requests use keyword ranking immediately while the model is
+loading, unavailable, or serving another semantic request. Once ready, refresh
+matches to use MiniLM. There are no runtime model downloads. The worker uses one
+ONNX inference thread, a startup timeout, an inference timeout, and serialized
+inference. It shares the instance's memory; this change does not guarantee that
+a free instance has enough RAM. Set `MATCHING_MODE=keyword` and redeploy to disable
+model loading, or use a larger instance if measurements show memory pressure.
+
+Embedding vectors are cached in MongoDB's `embedding_cache` collection for 30 days.
+Keys include the pinned model version, text hash, and account ID for profile vectors.
+Job vectors are shared. Raw resume/profile text is not stored in this cache.
+Changed text or a changed model version produces a new key. Deleting an account
+removes its persisted profile vectors; cache failures fall back to computing vectors.
+Cache records have no public API.
+
+For an existing manually configured Render service, update its Build Command to
+`npm ci --include=dev && npm run build:render` and set `MATCHING_MODE=minilm`.
+Existing settings may override the Blueprint. Keep `MONGODB_URI` and health check
+path `/api/health`. That endpoint reports `matching: loading|ready|unavailable|disabled`;
+a missing model never makes the API health check fail. Logs report warm-up duration
+and process RSS. A failed worker stays unavailable until restart rather than looping.
+
+For local development, run `npm run model:prepare` once before `npm run server`.
+The pinned model files are stored under `.cache/models/minilm`, ignored by Git.
+`MINILM_MODEL_DIR` can override that location; it must be the same at build and runtime.
+A failed model download fails the Render build so it cannot silently deploy missing
+files. If you deliberately deploy without model files, choose keyword mode.
 
 1. Create a MongoDB Atlas cluster and a database user with access to the application
    database. Configure Atlas network access to allow connections from Render. For services
@@ -36,12 +66,20 @@ local filesystem is not used as the production database.
    prompted. The blueprint sets `DB_NAME=jobswipe`. Greenhouse is the default job source and needs no API key. Set
    `GREENHOUSE_BOARDS` if you want to override the default employer boards,
    and `GEMINI_API_KEY` if you want Gemini features.
-4. Render runs `npm ci && npm run build`, then `npm start`. The service listens on Render's
+4. Render runs `npm ci --include=dev && npm run build:render`, then `npm start`. The service listens on Render's
    assigned `PORT`; `/api/health` is its health check. The same-origin frontend/API setup
    does not require an `APP_ORIGINS` override.
 
-For local MongoDB development, set `MONGODB_URI` and optionally `DB_NAME` in an untracked
-`.env` file. Without a MongoDB URI, non-production runs continue to use local SQLite.
+For local development, copy `.env.example` to `.env` and set `MONGODB_URI` to a
+development MongoDB database (local MongoDB or a separate Atlas database).
+Set `DB_NAME` if using a database other than `jobswipe`. Then run
+`npm run server` and `npm run dev` in separate terminals. Keep the production
+database separate from local development and tests.
+
+The Greenhouse provider already caches public job boards in memory for ten minutes.
+This cache resets when the service restarts and is separate from saved jobs and
+application history in MongoDB. Render's `/api/health` route does not read listings
+or depend on the API rate limiter.
 
 ## Google sign-in
 

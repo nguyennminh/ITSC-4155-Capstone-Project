@@ -3,7 +3,7 @@ services:
     name: jobswipe
     runtime: node
     plan: free
-    buildCommand: npm ci --include=dev && npm run build
+    buildCommand: npm ci --include=dev && npm run build:render
     startCommand: npm start
     healthCheckPath: /api/health
     envVars:
@@ -17,6 +17,8 @@ services:
         value: jobswipe
       - key: JOB_PROVIDER
         value: greenhouse
+      - key: MATCHING_MODE
+        value: minilm
       - key: GEMINI_API_KEY
         sync: false
       - key: GOOGLE_CLIENT_ID

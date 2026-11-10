@@ -4,25 +4,44 @@ import { createLocalMatcher } from '../server/services/localMatcher.js';
 import { createJobProvider } from '../server/services/jobProvider.js';
 const profile = { skills: 'React', mode: 'Remote' };
 const jobs = [{ id: 'a', title: 'Developer', skills: ['React'], mode: 'Unknown' }];
+const vector = () => [1, ...Array(383).fill(0)];
+function readyClient(onEmbed = () => {}) {
+  return { status: () => 'ready', start: async () => true, close: async () => {},
+    embed: async () => { onEmbed(); return vector(); } };
+}
 test('MiniLM combines normalized similarity and coverage, caches text, retains unknown arrangements', async () => {
   let calls = 0;
-  const rank = createLocalMatcher({ load: async () => async () => { calls++; return { data: [1, 0] }; } });
-  const result = await rank(profile, jobs);
+  const rank = createLocalMatcher({ mode: 'minilm', client: readyClient(() => { calls++; }) });
+  const result = await rank(profile, jobs, { userId: 'alice' });
   assert.equal(result.source, 'minilm');
   assert.equal(result.matches[0].score, 100);
   assert.match(result.matches[0].warnings[0], /unknown/);
-  await rank(profile, jobs);
+  await rank(profile, jobs, { userId: 'alice' });
   assert.equal(calls, 2);
-  await rank({ ...profile, experience: 'New project' }, jobs);
+  await rank({ ...profile, experience: 'New project' }, jobs, { userId: 'alice' });
   assert.equal(calls, 3);
 });
 test('runtime failure uses deterministic keyword fallback and rejects known incompatible arrangements', async () => {
-  const rank = createLocalMatcher({ load: async () => { throw Error('offline'); } });
+  const rank = createLocalMatcher({ mode: 'minilm', client: { ...readyClient(), embed: async () => { throw Error('offline'); } } });
   const result = await rank(profile, [...jobs, { ...jobs[0], id: 'b', mode: 'On-site' }]);
   assert.equal(result.source, 'keyword');
   assert.equal(result.matches.length, 1);
   assert.equal(result.matches[0].score, 90);
   assert.match(result.message, /unavailable/);
+});
+test('keyword mode returns skill evidence without ever loading a model', async () => {
+  let loaded = false;
+  const rank = createLocalMatcher({ mode: 'keyword', client: { ...readyClient(), start: async () => { loaded = true; }, embed: async () => { loaded = true; throw Error('must not load'); } } });
+  const result = await rank(profile, jobs, { userId: 'alice' });
+  assert.equal(loaded, false);
+  assert.equal(result.source, 'keyword');
+  assert.equal(result.matches[0].jobId, 'a');
+  assert.equal(result.matches[0].score, 90);
+  assert.equal(result.message, '');
+  assert.equal(result.matches[0].evidence[0].skill, 'react');
+});
+test('invalid matching configuration fails explicitly', () => {
+  assert.throws(() => createLocalMatcher({ mode: 'typo' }), /MATCHING_MODE/);
 });
 test('Adzuna pagination caps at three pages and deduplicates across pages', async () => {
   const pages = [];

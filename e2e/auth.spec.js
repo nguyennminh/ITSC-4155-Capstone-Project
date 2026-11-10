@@ -44,7 +44,7 @@ test('expired sessions return to login and allow signing in again', async ({ pag
   await context.clearCookies();
   await page.getByRole('button', { name: 'Save and confirm changes', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('Your session has expired. Please sign in again.');
+  await expect(page.getByRole('status').filter({ hasText: 'Your session has expired.' })).toHaveText('Your session has expired. Please sign in again.');
   await expect(page.getByRole('button', { name: 'Preferences', exact: true })).toHaveCount(0);
   await page.getByLabel('Email', { exact: true }).fill(email);
   await page.getByLabel('Password', { exact: true }).fill(password);

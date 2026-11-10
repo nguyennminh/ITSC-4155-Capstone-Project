@@ -21,7 +21,7 @@ test('structured profile edits persist across sessions and stay private', async 
 
 test('structured entries and phone survive closing and reopening the database', async t => {
   const {mkdtemp,rm}=await import('node:fs/promises');const {tmpdir}=await import('node:os');const {join}=await import('node:path');
-  const {openStore}=await import('../server/store.js');
+  const {openStore}=await import('./support/sqlite-store.js');
   const dir=await mkdtemp(join(tmpdir(),'jobswipe-profile-'));t.after(()=>rm(dir,{recursive:true,force:true}));
   const file=join(dir,'test.sqlite');let store=openStore(file);
   const id=store.createUser('restart@example.org','test-hash','Alex','Job seeker');

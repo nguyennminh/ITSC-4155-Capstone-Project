@@ -1,6 +1,6 @@
 import { once } from 'node:events';
 import { createApp } from '../../server/app.js';
-import { openStore } from '../../server/store.js';
+import { openStore } from './sqlite-store.js';
 import { emptyProfile, jobs } from '../../src/data/mockData.js';
 export const password = 'sprint-four-password';
 export const profile = { ...emptyProfile, name: 'Alex Chen', email: 'alex@example.org', skills: 'React, SQL' };

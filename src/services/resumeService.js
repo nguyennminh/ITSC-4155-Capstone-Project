@@ -16,8 +16,12 @@ export async function api(path, options = {}) {
   if (response.status === 401 && !path.startsWith('/api/auth/')) {
     for (const listener of sessionExpiryListeners) listener();
   }
-  if (!response.ok) throw new Error(body?.error || 'Request failed. Make sure npm run server is running.');
-  if (!body) throw new Error('No API response. Make sure npm run server is running.');
+  if (!response.ok) {
+    if (typeof body?.error === 'string' && body.error) throw new Error(body.error);
+    if (response.status >= 500) throw new Error(`JobSwipe’s server is temporarily unavailable (HTTP ${response.status}). Try again in a moment.`);
+    throw new Error(`JobSwipe could not complete the request (HTTP ${response.status}). Try again.`);
+  }
+  if (!body) throw new Error('JobSwipe returned an unexpected response. Reload and try again.');
   return body;
 }
 export function jsonPost(path, body) {

@@ -101,7 +101,7 @@ When the client ID is absent, the Google control is omitted and password
 authentication remains usable. Production MongoDB must support transactions
 (a replica set or sharded cluster); MongoDB Atlas provides this. A standalone
 local MongoDB server can still serve existing password flows, but use a local
-replica set or SQLite to test Google sign-in.
+replica set or the isolated SQLite test fixture to test Google sign-in.
 
 References: [Google setup](https://developers.google.com/identity/gsi/web/guides/get-google-api-clientid),
 [button integration](https://developers.google.com/identity/gsi/web/guides/display-button),
@@ -147,11 +147,11 @@ and account creation in the same database transaction. Unique constraints
 prevent duplicate email accounts and multiple Google identities per user.
 Password proofs are bound to the exact existing account and password hash.
 
-SQLite schema version 1 makes `password_hash` nullable while preserving user
-IDs and all foreign-key relationships. MongoDB requires no rewrite of existing
-accounts. Both use `google_identities` and `google_attempts`; MongoDB adds unique
-indexes and an attempt-expiry TTL index. Queries enforce expiry independently
-of TTL cleanup. SQLite prunes expired attempts when new ones start.
+MongoDB requires no rewrite of existing accounts. It uses
+`google_identities` and `google_attempts` with unique indexes and an
+attempt-expiry TTL index. Queries enforce expiry independently of TTL cleanup.
+The SQLite test fixture preserves the legacy migration checks but is not loaded
+by the JobSwipe runtime.
 
 Successful sign-in rotates the existing seven-day application session. Logout
 revokes that session without signing the user out of their Google account.
@@ -171,8 +171,8 @@ Authentication failures stay on the login form, with recovery and restart contro
 - Browser tests stub GIS and Google API responses, covering both roles,
   linking, cancellation, load/provider/network errors, expiry, session
   restoration, logout, and duplicate submissions. Production has no test bypass.
-- Back up the database before deploying. SQLite migration runs on startup;
-  MongoDB startup creates indexes without altering existing account records.
+- Back up the database before deploying. MongoDB startup creates indexes
+  without altering existing account records.
   Verify existing password sign-in, saved jobs, applications, and resume data.
 - Before enabling production, perform a real Google popup smoke test with
   configured test users: new users in both roles, password-confirmed linking,

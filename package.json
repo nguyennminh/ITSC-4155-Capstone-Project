@@ -6,6 +6,8 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
+    "model:prepare": "node scripts/prepare-minilm.js",
+    "build:render": "npm run model:prepare && npm run build",
     "preview": "vite preview",
     "test": "node --test test/*.test.js",
     "server": "node --watch server/index.js",

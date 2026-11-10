@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { createApp } from '../server/app.js';
-import { openStore } from '../server/store.js';
+import { openStore } from './support/sqlite-store.js';
 import { hashPassword, verifyPassword } from '../server/auth.js';
 
 const account = { name: 'Alex', email: 'alex@example.com', password: 'a-long-test-password' };
