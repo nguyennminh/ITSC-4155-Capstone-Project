@@ -272,10 +272,6 @@ export default function App() {
 
       {detail && <JobDetails {...detail} onClose={closeDetails} onStart={apply}/>}
       <div className="container" inert={detail ? true : undefined}>
-        <p className="demo-label"><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> ·
-          Confirmed profiles, saved jobs, and application tracking are saved
-        </p>
-
         {message && (
           <p className="notice" role="status">
             {message}
@@ -361,6 +357,10 @@ export default function App() {
 
 
         {page === "recruiter" && <Recruiter />}
+
+        <p className="demo-label"><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> ·
+          Confirmed profiles, saved jobs, and application tracking are saved
+        </p>
       </div>
     </div>
   );
