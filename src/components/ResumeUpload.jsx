@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import DropzoneUploader from '../Components/DropzoneUploader.jsx';
+import DropzoneUploader from './DropzoneUploader.jsx';
 
 export default function ResumeUpload({ resume, savedResume, onResumeChange, onRemoveSaved, children }) {
   const [error, setError] = useState('');

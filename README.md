@@ -53,3 +53,8 @@ it. Register the exact frontend origins in Google Cloud, including the Render HT
 Existing accounts require their JobSwipe password once before Google is linked. New Google
 users choose Job seeker or Recruiter. MongoDB Google sign-in uses transactions and requires
 a replica set, as provided by Atlas. See [authentication setup and verification](docs/authentication.md#google-sign-in).
+
+### Chrome autofill extension
+
+See [installing and using JobSwipe Autofill](docs/local-application-review.md)
+to fill supported Greenhouse applications from the regular JobSwipe app.
