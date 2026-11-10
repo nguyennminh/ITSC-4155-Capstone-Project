@@ -33,9 +33,9 @@ local filesystem is not used as the production database.
 2. In Atlas, copy the application connection string and replace its username, password, and
    database name as needed. URL-encode special characters in the credentials.
 3. In Render, create a new Blueprint from this repository and provide `MONGODB_URI` when
-   prompted. The blueprint sets `DB_NAME=jobswipe`. Configure `ADZUNA_APP_ID`,
-   `ADZUNA_APP_KEY`, and `GEMINI_API_KEY` in the Render service if those integrations are
-   enabled for the deployment.
+   prompted. The blueprint sets `DB_NAME=jobswipe`. Greenhouse is the default job source and needs no API key. Set
+   `GREENHOUSE_BOARDS` if you want to override the default employer boards,
+   and `GEMINI_API_KEY` if you want Gemini features.
 4. Render runs `npm ci && npm run build`, then `npm start`. The service listens on Render's
    assigned `PORT`; `/api/health` is its health check. The same-origin frontend/API setup
    does not require an `APP_ORIGINS` override.
@@ -58,3 +58,10 @@ a replica set, as provided by Atlas. See [authentication setup and verification]
 
 See [installing and using JobSwipe Autofill](docs/local-application-review.md)
 to fill supported Greenhouse applications from the regular JobSwipe app.
+
+Discover reads hosted listings from Discord, Cloudflare, Figma, and Robinhood by default.
+Set `GREENHOUSE_BOARDS` to a comma-separated list of up to eight Greenhouse board
+names to override them. Only standard hosted Greenhouse URLs are included so the
+Chrome extension can recognize the destination. Swipe right to open the employer
+form in a new tab and record **Started**; choose **Save** to bookmark it instead.
+For the legacy Adzuna provider, set `JOB_PROVIDER=adzuna` and configure its API keys.

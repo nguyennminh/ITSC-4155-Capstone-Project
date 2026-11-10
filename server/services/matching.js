@@ -66,7 +66,7 @@ export function buildMatchEvidence(profile, job, matched) {
   });
 }
 
-function canonicalSkill(skill) {
+export function canonicalSkill(skill) {
   const normalized = normalize(skill);
   return Object.keys(skillAliases).find(key => skillAliases[key].includes(normalized)) || normalized;
 }
@@ -102,7 +102,10 @@ export function rankJobs(profile = {}, jobs = []) {
     if (seenIds.has(idKey)) continue;
     seenIds.add(idKey);
     if (job.available === false || job.expired === true) continue;
-    if (!( !job.mode || preference(job.mode) === 'unknown' || acceptsPreference(profile.mode, job.mode)) || !acceptsPreference(profile.type, job.type)) continue;
+    const unknownType = !job.type || preference(job.type) === 'unknown';
+    const greenhouse = job.source === 'Greenhouse';
+    if (!(!job.mode || preference(job.mode) === 'unknown' || acceptsPreference(profile.mode, job.mode))
+      || !(acceptsPreference(profile.type, job.type) || (greenhouse && unknownType))) continue;
 
     const skills = Array.isArray(job.skills) ? job.skills : [];
     const required = [...new Set(skills.filter(skill => typeof skill === 'string')
@@ -110,26 +113,30 @@ export function rankJobs(profile = {}, jobs = []) {
     const matched = required.filter(skill => (skillAliases[skill] || [skill])
       .some(alias => hasTerm(qualifications, alias)));
 
-    // A title/location coincidence alone is not evidence of a qualification match.
-    if (!matched.length) continue;
-    const missing = required.filter(skill => !matched.includes(skill));
     const titleMatch = Boolean(title && hasTerm(normalize(job.title), title));
+    if (!matched.length && !(greenhouse && titleMatch)) continue;
+    const missing = required.filter(skill => !matched.includes(skill));
     const locationMatch = Boolean(location && hasTerm(normalize(job.location), location));
     const semanticScore = semanticSimilarity(qualifications, [job.title, job.description, ...(job.skills || [])].join('\n'));
-    const keywordScore = 90 * matched.length / required.length + (titleMatch ? 5 : 0) + (locationMatch ? 5 : 0);
+    const coverage = required.length ? matched.length / required.length : 0;
+    const keywordScore = 90 * coverage + (titleMatch ? 5 : 0) + (locationMatch ? 5 : 0);
     const score = Math.min(100, Math.round(keywordScore));
 
     results.push({
       jobId: job.id, // Preserve the original type for existing numeric fixtures and string provider IDs.
       score,
       semanticScore: Math.round(semanticScore * 100) / 100,
-      coverage: matched.length / required.length,
-      warnings: !job.mode || preference(job.mode) === 'unknown' ? ['Work arrangement is unknown. Verify it in the original posting.'] : [],
+      coverage,
+      warnings: [
+        ...(!job.mode || preference(job.mode) === 'unknown' ? ['Work arrangement is unknown. Verify it in the original posting.'] : []),
+        ...(greenhouse && unknownType ? ['Employment type is unknown. Verify it in the original posting.'] : []),
+      ],
       evidence: buildMatchEvidence(profile, job, matched),
       matched,
       missing,
       reasons: [
-        `Your confirmed qualifications mention: ${matched.join(', ')}.`,
+        matched.length ? `Your confirmed qualifications mention: ${matched.join(', ')}.`
+          : 'No confirmed skill overlap was found. Review the requirements before applying.',
         ...(titleMatch ? ['The title matches your preferred role.'] : []),
         ...(locationMatch ? ['The location matches your preference.'] : []),
       ],

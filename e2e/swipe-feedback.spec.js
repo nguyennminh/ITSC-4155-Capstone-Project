@@ -4,15 +4,22 @@ import { emptyProfile } from '../src/data/mockData.js';
 async function setup(page, fail = false, overrides = {}, extraJobs = [], options = {}) {
   let savedJobs = [];
   let saves = 0;
+  let starts = 0;
   const job = { id: 'drag-test', title: 'Data Engineer', company: 'Example', skills: ['Python'], description: 'Build pipelines.', postingUrl: 'https://example.org/job', mode: 'Remote', ...overrides };
   const jobs = [job, ...extraJobs];
+  await page.context().route('https://example.org/job', route => route.fulfill({ body: 'Employer application' }));
   await page.route('**/api/**', async route => {
     const path = new URL(route.request().url()).pathname;
     let json = {};
     if (path === '/api/auth/me') json = { user: { id: 'drag-user', confirmed: true, role: 'Job seeker', profile: { ...emptyProfile, skills: 'Python, Snowflake, Machine Learning, Pandas, scikit-learn', ...options.profile } } };
     if (path === '/api/jobs') json = { jobs };
-    if (path === '/api/jobs/match') json = { jobs, matches: jobs.map(item => ({ jobId: item.id, score: 80, matched: (item.skills || []).filter(skill => skill === 'Python'), missing: [], reasons: [], ...options.recommendation })) };
+    if (path === '/api/jobs/match') json = { jobs, jobSource: 'Greenhouse', matches: jobs.map(item => ({ jobId: item.id, score: 80, matched: (item.skills || []).filter(skill => skill === 'Python'), missing: [], reasons: [], ...options.recommendation })) };
     if (path === '/api/applications') json = { applications: [] };
+    if (path === '/api/applications/start') {
+      starts++;
+      if (options.failStart) return route.fulfill({ status: 503, json: { error: 'Application unavailable. Try again.' } });
+      json = { applications: [{ id: job.id, status: 'Started' }], url: job.postingUrl };
+    }
     if (path === '/api/saved-jobs') {
       if (route.request().method() === 'POST') {
         saves++;
@@ -25,11 +32,12 @@ async function setup(page, fail = false, overrides = {}, extraJobs = [], options
   });
   await page.goto('/');
   await expect(page.locator('.job-card h2')).toHaveText(job.title);
-  return () => saves;
+  return { saves: () => saves, starts: () => starts };
 }
 
-test('skills stay intact; holding reveals targets; a right drop saves and shows placeholder', async ({ page }) => {
-  const saves = await setup(page);
+test('skills stay intact; holding reveals targets; a right drop opens the application in a new tab', async ({ page }) => {
+  const { saves, starts } = await setup(page);
+  await expect(page.locator('section').getByText(/Listings from Greenhouse. Swipe left/)).toBeVisible();
   await expect(page.locator('.skill-tags span')).toHaveText(['Python', 'Snowflake', 'Machine Learning', 'Pandas', 'scikit-learn']);
   const card = page.locator('.swipe-surface');
   await expect(card).toHaveCSS('animation-name', 'job-card-enter');
@@ -47,17 +55,18 @@ test('skills stay intact; holding reveals targets; a right drop saves and shows 
   await page.mouse.move(box.x + 140, box.y + 10, { steps: 8 });
   await expect(page.locator('.swipe-target-save')).toHaveClass(/is-active/);
   await expect(page.locator('.swipe-targets')).toHaveClass(/choosing-save/);
+  const opened = page.context().waitForEvent('page');
   await page.mouse.up();
-  const dialog = page.getByRole('dialog');
-  await expect(dialog).toBeVisible();
-  await expect(dialog).toContainText('no application has been submitted');
-  expect(saves()).toBe(1);
-  await page.keyboard.press('Escape');
-  await expect(dialog).toHaveCount(0);
+  const employer = await opened;
+  await expect(employer).toHaveURL('https://example.org/job');
+  await expect(page.getByRole('heading', { name: 'Your matches' })).toBeVisible();
+  expect(await employer.evaluate(() => window.opener)).toBeNull();
+  expect(starts()).toBe(1);
+  expect(saves()).toBe(0);
 });
 
 test('center release cancels; left drop skips without saving or opening application preview', async ({ page }) => {
-  const saves = await setup(page);
+  const { saves, starts } = await setup(page);
   const title = page.locator('.job-card h2');
   await title.scrollIntoViewIfNeeded();
   let box = await title.boundingBox();
@@ -73,6 +82,7 @@ test('center release cancels; left drop skips without saving or opening applicat
   await expect(title).toHaveCount(0);
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(saves()).toBe(0);
+  expect(starts()).toBe(0);
 });
 
 test('save failure retains the job and does not claim success in a popup', async ({ page }) => {
@@ -85,7 +95,7 @@ test('save failure retains the job and does not claim success in a popup', async
 
 test.describe('touch layout', () => {
   test.use({ viewport: { width: 390, height: 844 }, hasTouch: true });
-  test('touch drag right highlights Save and opens the placeholder', async ({ page }) => {
+  test('touch drag right opens the application in a new tab', async ({ page }) => {
     await setup(page);
     const title = page.locator('.job-card h2');
     await title.scrollIntoViewIfNeeded();
@@ -96,10 +106,10 @@ test.describe('touch layout', () => {
     await expect(page.locator('.swipe-targets')).toBeVisible();
     await session.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x: start.x + 120, y: start.y + 2 }] });
     await expect(page.locator('.swipe-target-save')).toHaveClass(/is-active/);
+    const opened = page.context().waitForEvent('page');
     await session.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
-    await expect(page.getByRole('dialog')).toBeVisible();
-    await page.getByRole('button', { name: 'Keep exploring' }).click();
-    await expect(page.getByRole('dialog')).toHaveCount(0);
+    await expect(await opened).toHaveURL('https://example.org/job');
+    await expect(page.getByRole('heading', { name: 'Your matches' })).toBeVisible();
     await session.detach();
   });
 });
@@ -120,17 +130,25 @@ test('card summary keeps real data and opens full match evidence', async ({ page
   await expect(page.getByRole('dialog')).toHaveCount(0);
 });
 
-test('circular Apply preserves disclosure and does not submit or save a job', async ({ page }) => {
-  const saves = await setup(page);
-  await page.getByRole('button', { name: 'Apply', exact: true }).click();
-  await expect(page.locator('.apply-disclosure')).toContainText('JobSwipe does not submit it for you');
-  await expect(page.getByRole('button', { name: 'Start application', exact: true })).toBeVisible();
+test('application error closes the pending tab and keeps the current card', async ({ page }) => {
+  const { saves, starts } = await setup(page, false, {}, [], { failStart: true });
+  const opened = page.context().waitForEvent('page');
+  await page.getByRole('button', { name: 'Open application', exact: true }).click();
+  const tab = await opened;
+  await expect(page.getByRole('alert')).toContainText('Application unavailable. Try again.');
   await expect(page.locator('.job-card h2')).toHaveText('Data Engineer');
-  const buttons = await page.locator('.discover-action').evaluateAll(items => items.map(item => ({ x: item.getBoundingClientRect().x, y: item.getBoundingClientRect().y })));
-  expect(buttons[0].x).toBeLessThan(buttons[1].x);
-  expect(buttons[1].x).toBeLessThan(buttons[2].x);
-  expect(Math.abs(buttons[0].y - buttons[2].y)).toBeLessThan(1);
+  expect(tab.isClosed()).toBe(true);
+  expect(starts()).toBe(1);
   expect(saves()).toBe(0);
+});
+
+test('a blocked tab leaves a safe fallback link', async ({ page }) => {
+  await setup(page);
+  await page.evaluate(() => { window.open = () => null; });
+  await page.getByRole('button', { name: 'Open application', exact: true }).click();
+  const fallback = page.getByRole('link', { name: /Open employer application in a new tab/ });
+  await expect(fallback).toHaveAttribute('href', 'https://example.org/job');
+  await expect(fallback).toHaveAttribute('rel', 'noopener noreferrer');
 });
 
 test('cards fit narrow screens in both themes', async ({ page }, testInfo) => {
@@ -160,8 +178,6 @@ test('deck advances to the next listing and Saved retains the shared card design
   await expect(page.locator('.deck-backing')).toBeVisible();
   await expect(page.locator('.company-initial')).toHaveText('?');
   await page.getByRole('button', { name: 'Save', exact: true }).click();
-  await expect(page.getByRole('dialog')).toBeVisible();
-  await page.keyboard.press('Escape');
   await expect(page.locator('.job-card h2')).toHaveText('Next role');
   await expect(page.locator('.deck-backing')).toHaveCount(0);
   await page.getByRole('button', { name: 'Saved', exact: true }).click();

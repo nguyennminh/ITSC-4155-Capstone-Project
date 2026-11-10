@@ -3,7 +3,7 @@ import { createLocalMatcher } from './services/localMatcher.js';
 import multer from 'multer';
 import { rateLimit } from 'express-rate-limit';
 import { z } from 'zod';
-import { createJobProvider } from './services/jobProvider.js';
+import { configuredJobProvider } from './services/greenhouseProvider.js';
 import { safeExternalUrl } from '../src/services/linkService.js';
 import { extractText } from './services/extractText.js';
 import { parseResumeFields } from './services/resumeFields.js';
@@ -27,7 +27,7 @@ const profileSchema = z.object({
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
 });
-export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, rank = createLocalMatcher(), jobProvider = createJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20 } = {}) {
+export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, rank = createLocalMatcher(), jobProvider = configuredJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20 } = {}) {
   const store = new Proxy(providedStore, {
     get(target, property, receiver) {
       const method = Reflect.get(target, property, receiver);
@@ -99,17 +99,24 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     if (!req.user) return res.status(401).json({ error: 'Sign in to access your resume and profile.' });
     next();
   });
+  const searchOptions = profile => ({
+    skills: profile.skills,
+    ...(jobProvider.source === 'Greenhouse' ? { title: profile.title } : {}),
+  });
+  const findJob = async (profile, id) => jobProvider.getJob
+    ? jobProvider.getJob(id)
+    : (await jobProvider.getJobs(searchOptions(profile))).find(job => String(job.id) === id);
   app.get('/api/jobs', async (req, res) => {
     const profile = JSON.parse(req.user.profile_json);
     const skills = req.user.confirmed ? profile.skills : '';
-    res.json({ jobs: skills.trim() ? await jobProvider.getJobs({ skills, refresh: req.query.refresh === 'true' }) : [] });
+    res.json({ jobs: skills.trim() ? await jobProvider.getJobs({ ...searchOptions(profile), refresh: req.query.refresh === 'true' }) : [] });
   });
   app.get('/api/applications', async (req, res) => res.json({ applications: await store.applications(req.user.id) }));
   app.post('/api/applications/start', async (req, res) => {
     const parsed = z.object({ jobId: z.string().min(1).max(200) }).safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Choose a valid job.');
     const profile = JSON.parse(req.user.profile_json);
-    const job = (await jobProvider.getJobs({ skills: profile.skills })).find(job => String(job.id) === parsed.data.jobId);
+    const job = await findJob(profile, parsed.data.jobId);
     if (!job) throw new ApiError(404, 'This job is no longer in the available listings.');
     const url = safeExternalUrl(job.applyUrl || job.postingUrl);
     if (!url) throw new ApiError(422, 'This job has no valid application link.');
@@ -183,7 +190,7 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     const parsed = z.object({ jobId: z.string().min(1).max(200) }).safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Choose a valid job.');
     const profile = JSON.parse(req.user.profile_json);
-    const job = (await jobProvider.getJobs({ skills: profile.skills })).find(item => String(item.id) === parsed.data.jobId);
+    const job = await findJob(profile, parsed.data.jobId);
     if (!job) throw new ApiError(404, 'This job is no longer in the available listings.');
     await store.saveJob(req.user.id, job);
     res.json({ savedJobs: await store.savedJobs(req.user.id) });
@@ -215,16 +222,16 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
     if (!req.user.confirmed) throw new ApiError(409, 'Confirm your profile before matching jobs.');
     const profile = JSON.parse(req.user.profile_json);
     if (!profile.skills.trim()) throw new ApiError(422, 'Add skills from your resume or profile before matching jobs.');
-    const jobs = await jobProvider.getJobs({ skills: profile.skills });
+    const jobs = await jobProvider.getJobs(searchOptions(profile));
     const result = await rank(profile, jobs);
-    res.json({ jobs, ...result, sampleJobs: false });
+    res.json({ jobs, ...result, jobSource: jobProvider.source, sampleJobs: false });
   });
   app.post('/api/jobs/explain', async (req, res) => {
     if (!req.user.confirmed) throw new ApiError(409, 'Confirm your profile first.');
     const request = z.object({ consent: z.literal(true), jobId: z.string().min(1).max(200) }).safeParse(req.body);
     if (!request.success) throw new ApiError(400, 'Select a job and consent separately to Gemini processing for its explanation.');
     const profile = JSON.parse(req.user.profile_json);
-    const jobs = await jobProvider.getJobs({ skills: profile.skills });
+    const jobs = await jobProvider.getJobs(searchOptions(profile));
     const job = jobs.find(job => String(job.id) === request.data.jobId);
     if (!job) throw new ApiError(404, 'Job is no longer available. Refresh the listings.');
     try {
