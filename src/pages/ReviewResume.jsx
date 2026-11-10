@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import ResumeSuggestions from '../components/ResumeSuggestions.jsx';
+import PageHeader from '../components/PageHeader.jsx';
 import ResumeEntryEditor from '../components/ResumeEntryEditor.jsx';
 import { normalizeProfile, entryText } from '../data/profileFields.js';
 
@@ -27,8 +28,7 @@ export default function ReviewResume({ initialProfile, rawText = '', warnings = 
     finally { setBusy(false); }
   }
   return <section>
-    <h1>Review your resume information</h1>
-    <p>Correct missing or inaccurate details. Only confirmed fields will be used for matching.</p>
+    <PageHeader title="Review your resume information" subtitle="Correct missing or inaccurate details. Only confirmed fields will be used for matching."/>
     {warnings.map((warning, index) => <p className="notice" key={index}>{warning}</p>)}
     <div className="two-columns">
       <form className="card" onSubmit={submit}>

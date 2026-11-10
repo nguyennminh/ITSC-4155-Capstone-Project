@@ -24,7 +24,6 @@ async function setup(page, fail = false, overrides = {}, extraJobs = [], options
     await route.fulfill({ json });
   });
   await page.goto('/');
-  await page.getByRole('button', { name: 'Rank jobs', exact: true }).click();
   await expect(page.locator('.job-card h2')).toHaveText(job.title);
   return () => saves;
 }

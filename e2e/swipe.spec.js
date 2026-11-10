@@ -72,7 +72,7 @@ test('skip history and saved listings stay with the authenticated account',async
   await page.getByLabel('Email',{exact:true}).fill(firstEmail);
   await page.getByLabel('Password',{exact:true}).fill('swipe-test-password');
   await page.getByRole('button',{name:'Sign in',exact:true}).click();
-  await page.getByRole('heading',{name:'Discover jobs',exact:true}).waitFor();
+  await page.getByRole('heading',{name:'Your matches',exact:true}).waitFor();
   await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Rank jobs with Gemini'}).click();
   await expect(page.locator('.job-card h2')).toHaveText('Data Engineering Intern');
 });

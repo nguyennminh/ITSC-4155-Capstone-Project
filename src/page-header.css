@@ -1,0 +1,62 @@
+/* Match the reference portal's compact title and supporting line. */
+.app-layout > .container { --page-gutter: clamp(1rem, 3vw, 2rem); }
+.app-layout > .container:has(.page-header) {
+  max-width: none;
+  padding-top: 0;
+  padding-inline: 0;
+}
+.app-layout > .container:has(.page-header) > .demo-label {
+  width: calc(100% - 2 * var(--page-gutter));
+  max-width: calc(1150px - 2 * var(--page-gutter));
+  margin-inline: auto;
+}
+.app-layout > .container > :is(section, main):has(> .page-header) {
+  display: grid;
+  grid-template-columns: minmax(var(--page-gutter), 1fr) minmax(0, var(--page-content-width, calc(1150px - 2 * var(--page-gutter)))) minmax(var(--page-gutter), 1fr);
+}
+.app-layout > .container > :is(section, main):has(> .page-header) > * { grid-column: 2; }
+.profile-page:has(> .page-header) {
+  --page-content-width: 850px;
+  max-width: none;
+  margin: 0;
+  padding: 0;
+}
+.app-layout > .container > :is(section, main) > .page-header { grid-column: 1 / -1; }
+.profile-page:has(> .page-header) > button { justify-self: start; }
+.page-header {
+  display: flex;
+  align-items: center;
+  min-height: 110px;
+  margin: 0 0 24px;
+  padding: 24px var(--page-gutter, 0px);
+  border-bottom: 1px solid var(--border);
+  background: var(--surface, rgba(255, 255, 255, .8));
+}
+.page-header h1 {
+  margin: 0;
+  font-family: "Manrope", sans-serif;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.3;
+  letter-spacing: -.7px;
+  color: var(--ink);
+}
+.page-header p {
+  margin: 4px 0 0;
+  font-family: "DM Sans", sans-serif;
+  font-size: 12px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+@media (max-width: 740px) {
+  .page-header { min-height: 90px; padding-block: 18px; }
+  .page-header h1 { font-size: 21px; }
+}
+@media (max-width: 700px) {
+  .app-layout > .container { --page-gutter: 1rem; }
+  section:has(> .page-header) > .filters { flex-wrap: nowrap; }
+  section:has(> .page-header) > .filters > label { flex: 0 1 auto; }
+}
+@media (max-width: 400px) {
+  .app-layout > .container { --page-gutter: .75rem; }
+}

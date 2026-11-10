@@ -26,7 +26,7 @@ test('sidebar uses account data, live saved counts, and existing destinations', 
   await page.getByRole('button', { name: /Remove/i }).click();
   await expect(sidebar.locator('.saved-count')).toHaveText('0');
   await sidebar.getByRole('button', { name: 'Applications', exact: true }).click();
-  await expect(page.getByRole('heading', { name: 'Applications', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Your applications', exact: true })).toBeVisible();
   await sidebar.getByRole('button', { name: 'Preferences', exact: true }).click();
   await expect(page.getByLabel('Full name *', { exact: true })).toHaveValue('Maya Singh');
 });
@@ -160,4 +160,34 @@ test('mobile recruiter links and final application controls remain accessible', 
   expect(control.y).toBeGreaterThanOrEqual(0);
   expect(control.y + control.height).toBeLessThanOrEqual(bar.y);
   await expect(lastButton).toBeVisible();
+});
+
+test('sidebar keeps the sign-in email when resume contact details change', async ({ page }) => {
+  const loginEmail = await setup(page);
+  const sidebarEmail = page.locator('.sidebar .user-details small');
+  const contactEmail = 'resume-contact@example.org';
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click();
+  await page.getByLabel('Email', { exact: true }).fill(contactEmail);
+  const saved = page.waitForResponse(response => response.url().endsWith('/api/profile/confirm') && response.request().method() === 'POST');
+  await page.getByRole('button', { name: 'Save and confirm changes', exact: true }).click();
+  expect((await saved).ok()).toBe(true);
+  await expect(page.getByRole('button', { name: 'Save and confirm changes', exact: true })).toBeEnabled();
+  await expect(sidebarEmail).toHaveText(loginEmail);
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue(contactEmail);
+  await page.reload();
+  await expect(sidebarEmail).toHaveText(loginEmail);
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click();
+  await expect(page.getByLabel('Email', { exact: true })).toHaveValue(contactEmail);
+  await page.getByRole('button', { name: 'Account options', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+  await page.getByLabel('Email', { exact: true }).fill(loginEmail);
+  await page.getByLabel('Password', { exact: true }).fill('sidebar-test-password');
+  await page.getByRole('button', { name: 'Sign in', exact: true }).click();
+  await expect(sidebarEmail).toHaveText(loginEmail);
+  await page.getByRole('button', { name: 'Account options', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+  const nextEmail = await setup(page);
+  await expect(sidebarEmail).toHaveText(nextEmail);
 });

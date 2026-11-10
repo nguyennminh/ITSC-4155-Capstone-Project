@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import DropzoneUploader from './DropzoneUploader.jsx';
+import DropzoneUploader from '../Components/DropzoneUploader.jsx';
 
 export default function ResumeUpload({ resume, savedResume, onResumeChange, onRemoveSaved, children }) {
   const [error, setError] = useState('');
@@ -54,8 +54,8 @@ export default function ResumeUpload({ resume, savedResume, onResumeChange, onRe
         Uploaded resumes are saved privately to your account.
       </p>
 
-      <DropzoneUploader ref={uploaderRef} visible={!currentResume}
-        onFileAccepted={onResumeChange} onError={setError} />
+      {!currentResume && <DropzoneUploader ref={uploaderRef} visible={true}
+        onFileAccepted={onResumeChange} onError={setError} />}
 
       {currentResume && (
         <div className="resume-details">

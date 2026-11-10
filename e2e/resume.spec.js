@@ -29,7 +29,7 @@ test('PBIs 10/11/14: upload, review edits/removals, reload, re-login and match s
   await expect(page.getByRole('button', { name: 'Confirm information' })).toBeDisabled();
   await page.getByLabel('I reviewed these fields').check();
   await page.getByRole('button', { name: 'Confirm information' }).click();
-  await expect(page.getByRole('heading',{name:'Discover jobs',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Your matches',exact:true})).toBeVisible();
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name:'Rank jobs with Gemini' }).click();
   await expect(page.getByRole('heading', { name: 'Frontend Developer', exact:true })).toBeVisible();

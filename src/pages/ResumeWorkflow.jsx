@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import ResumeUpload from '../components/ResumeUpload.jsx';
+import PageHeader from '../components/PageHeader.jsx';
 import ReviewResume from './ReviewResume.jsx';
 import { api, deleteSavedResume, getSavedResume, parseResume } from '../services/resumeService.js';
 
@@ -70,7 +71,7 @@ export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel, o
     onConfirm={updated => onConfirm(updated, file)}
   />;
   return <section>
-    <h1>Upload your resume</h1>
+    <PageHeader title="Upload your resume" subtitle="Add your resume to get started."/>
     <p>Choose a PDF to upload and parse automatically, then review the fields before saving. DOCX files can be parsed using the button below.</p>
     {draft && <p className="notice">An unfinished parsed resume is saved to your account: {draft.resumeName}. <button onClick={() => setResult(draft)}>Resume saved review</button></p>}
     <ResumeUpload resume={file} savedResume={savedResume} onResumeChange={changeFile} onRemoveSaved={removeSaved}>

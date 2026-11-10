@@ -29,7 +29,7 @@ function Icon({ name, size = 20 }) {
   );
 }
 
-export default function Navigation({ page, navigate, role, profile, savedCount, logout, logoutBusy, inert }) {
+export default function Navigation({ page, navigate, role, profile, accountEmail, savedCount, logout, logoutBusy, inert }) {
   const links = role === 'Recruiter'
     ? [['recruiter', 'Applicants', 'send']]
     : [['discover', 'Discover', 'compass'], ['saved', 'Saved', 'heart'], ['applications', 'Applications', 'send']];
@@ -87,7 +87,7 @@ export default function Navigation({ page, navigate, role, profile, savedCount, 
       }}>
         <button type="button" className="user-card" ref={trigger} aria-label="Account options" aria-expanded={accountOpen} aria-controls="account-options" onClick={() => setAccountOpen(open => !open)}>
           <span className="avatar" aria-hidden="true">{avatar}</span>
-          <span className="user-details"><b>{name}</b><small>{profile?.email || 'Manage your account'}</small></span>
+          <span className="user-details"><b>{name}</b></span>
           <Icon name="chevronDown" size={16} />
         </button>
         {accountOpen && <div id="account-options" className="account-options" role="group" aria-label="Account actions">

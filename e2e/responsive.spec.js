@@ -26,7 +26,6 @@ for (const width of [320,390,740,741,768,1280]) test(`main pages fit at ${width}
     if (name==='Saved') await expect(page.locator('.job-card')).toHaveCount(1);
     if (name==='Applications') await expect(page.getByLabel('Status')).toHaveValue('Started');
   }
-  await page.getByRole('button',{name:'Rank jobs',exact:true}).click();
   await expect(page.locator('.job-card')).toBeVisible(); await fits();
   await page.getByRole('button',{name:'View details'}).click();await expect(page.getByRole('dialog')).toBeVisible();await fits();
   await expect(page.locator('.sidebar')).toHaveAttribute('inert', '');
