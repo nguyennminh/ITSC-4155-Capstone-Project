@@ -1,0 +1,11 @@
+{
+  "manifest_version": 3,
+  "name": "JobSwipe Autofill",
+  "description": "Fill supported Greenhouse applications with your saved JobSwipe details.",
+  "version": "0.4.2",
+  "permissions": ["activeTab", "scripting", "storage"],
+  "action": {
+    "default_title": "JobSwipe Autofill",
+    "default_popup": "popup.html"
+  }
+}
