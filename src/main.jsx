@@ -5,6 +5,7 @@ import './styles.css';
 import "./job-swipe-animation.css";
 import "./responsive.css";
 import "./sidebar.css";
+import "./job-cards.css";
 
 createRoot(document.getElementById('root')).render(<App />);
 

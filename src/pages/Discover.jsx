@@ -1,8 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Heart, X } from 'lucide-react';
 import InterestDialog from '../components/InterestDialog.jsx';
 import { splitSkills } from '../services/skillService.js';
 import ApplyButton from '../components/ApplyButton.jsx';
 import JobCard from '../components/JobCard.jsx';
+import MatchInsights from '../components/MatchInsights.jsx';
 import useSwipe from '../hooks/useSwipe.js';
 import { getMatches } from '../services/resumeService.js';
 
@@ -114,7 +116,11 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
     <p id="swipe-help" className="muted">Hold and drag the job card left to Pass or right to Save. The card highlights your choice; release near the center to cancel. You can also use the buttons or focus the card and use left/right arrow keys. Skips are remembered in this browser tab for your account.</p>
     <p role="status" aria-live="polite">{saving ? 'Saving job…' : decisionNotice}</p>
     {interestedJob && <InterestDialog job={interestedJob} onClose={() => setInterestedJob(null)}/>}
-    {job && <div
+    {job && <div className="discover-match-layout">
+    <div className="discover-deck-area">
+      <div className="discover-deck">
+        {available.length > 1 && <div className="deck-backing" aria-hidden="true"/>}
+      <div
       key={job.id}
       style={drag ? { transform: `translateX(${drag.x}px) rotate(${drag.x / 30}deg)` } : undefined}
       className={`swipe-surface${drag ? ' is-dragging' : ''}${swipeDirection ? ` swipe-exit-${swipeDirection}` : ''}`}
@@ -129,11 +135,17 @@ export default function Discover({ jobs, profile, confirmed, saved, onSave, onAp
         <div className={`swipe-target swipe-target-pass${drag.direction === 'left' ? ' is-active' : ''}`}><strong>Pass</strong><span>Skip this job</span></div>
         <div className={`swipe-target swipe-target-save${drag.direction === 'right' ? ' is-active' : ''}`}><strong>Save</strong><span>Save &amp; continue</span></div>
       </div>}
-      <JobCard job={job} recommendation={current} onDetails={onDetails}>
-        <button disabled={saving || Boolean(swipeDirection)} onClick={() => animateDecision('left')}>Pass</button>
-        <button disabled={saving || Boolean(swipeDirection)} onClick={() => animateDecision('right')}>{saving ? 'Saving…' : 'Save'}</button>
-        <ApplyButton job={job} onStart={onApply}/>
-      </JobCard>
+      <JobCard job={job} recommendation={current} onDetails={onDetails}/>
+    </div>
+    </div>
+    <div className="discover-actions">
+      <button type="button" className="discover-action action-pass" disabled={saving || Boolean(swipeDirection)} onClick={() => animateDecision('left')}><X size={25} aria-hidden="true"/><span className="action-caption">Pass</span></button>
+      <ApplyButton key={job.id} job={job} onStart={onApply} variant="circle" disabled={saving || Boolean(swipeDirection)}/>
+      <button type="button" className="discover-action action-save" disabled={saving || Boolean(swipeDirection)} onClick={() => animateDecision('right')}><Heart size={25} aria-hidden="true"/><span className="action-caption">{saving ? 'Saving…' : 'Save'}</span></button>
+    </div>
+    <div className="gesture-hints" aria-hidden="true"><span>← Pass</span><span>View details to learn more</span><span>Save →</span></div>
+    </div>
+    <MatchInsights job={job} recommendation={current} profile={profile} onDetails={onDetails}/>
     </div>}
   </section>;
 }

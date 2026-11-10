@@ -248,7 +248,7 @@ export default function App() {
     resetAccount();
   }
 
-  if (sessionLoading) return <main className="container"><p role="status">Loading your account…</p></main>;
+  //if (sessionLoading) return <main className="container"><p role="status">Loading your account…</p></main>;
   if (sessionError) return <main className="container"><p role="alert">{sessionError}</p><button onClick={restoreSession}>Retry connection</button></main>;
   if (page === "login") {
     return <Login onEnter={enter} notice={loginNotice} />;
