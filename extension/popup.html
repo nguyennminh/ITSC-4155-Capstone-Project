@@ -8,53 +8,59 @@
   <script type="module" src="popup.js"></script>
 </head>
 <body>
-  <main>
-    <h1>JobSwipe Autofill</h1>
-    <p id="instructions"></p>
-    <p id="details"></p>
-    <details id="connection">
-      <summary>Connect a hosted JobSwipe app</summary>
-      <form id="connection-form">
-        <label for="origin">Trusted JobSwipe HTTPS address</label>
-        <input id="origin" type="url" placeholder="https://your-jobswipe-site.example">
-        <button type="submit">Save connection</button>
-      </form>
-    </details>
-    <section id="import-options" hidden>
-      <label class="check"><input id="import-resume" type="checkbox"> Include saved résumé (PDF or DOCX, up to 6 MiB)</label>
-      <details>
-        <summary>Optional links and current work details</summary>
-        <div id="extras"></div>
+  <main class="popup">
+    <header class="popup-header">
+      <h1>JobSwipe Autofill</h1>
+    </header>
+    <div class="popup-content">
+      <p id="instructions"></p>
+      <p id="details" class="muted"></p>
+      <details id="connection">
+        <summary>Connect a hosted JobSwipe app</summary>
+        <form id="connection-form">
+          <label for="origin">Trusted JobSwipe HTTPS address</label>
+          <input id="origin" type="url" placeholder="https://your-jobswipe-site.example">
+          <button type="submit">Save connection</button>
+        </form>
       </details>
-      <details>
-        <summary>Optional voluntary self-ID answers</summary>
-        <p class="muted">Leave any answer blank. These choices stay in the extension’s temporary import.</p>
-        <div id="self-id"></div>
-      </details>
-      <button id="import" type="button">Import JobSwipe profile</button>
-    </section>
-    <section id="apply-options" hidden>
-      <fieldset id="selected-data" hidden>
-        <legend>Include on this form</legend>
-        <div id="resume-option" hidden>
-          <label class="check"><input id="attach" type="checkbox" checked> <span id="filename"></span></label>
-          <p class="muted">The employer may receive the file as soon as it is attached.</p>
-        </div>
-        <div id="self-id-option" hidden>
-          <label class="check"><input id="fill-self-id" type="checkbox" checked> Fill these voluntary answers</label>
-          <ul id="answer-preview"></ul>
-        </div>
-      </fieldset>
-      <button id="fill" type="button">Fill with JobSwipe</button>
-      <button id="scan" type="button" class="secondary">Check remaining fields</button>
-    </section>
-    <button id="clear" type="button" class="secondary" hidden>Clear imported data</button>
-    <p id="status" role="status" aria-live="polite"></p>
-    <section id="remaining" hidden aria-labelledby="remaining-title">
-      <h2 id="remaining-title">Needs attention</h2>
-      <ul id="remaining-list"></ul>
-    </section>
-    <p class="muted">Review the employer form before you submit. JobSwipe never clicks Submit.</p>
+      <section id="import-options" hidden>
+        <label class="check"><input id="import-resume" type="checkbox"> Include saved résumé (PDF or DOCX, up to 6 MiB)</label>
+        <details>
+          <summary>Optional links and current work details</summary>
+          <div id="extras"></div>
+        </details>
+        <details>
+          <summary>Optional voluntary self-ID answers</summary>
+          <p class="muted">Leave any answer blank. These choices stay in the extension’s temporary import.</p>
+          <div id="self-id"></div>
+        </details>
+      </section>
+      <section id="apply-options" hidden>
+        <fieldset id="selected-data" hidden>
+          <legend>Include on this form</legend>
+          <div id="resume-option" hidden>
+            <label class="check"><input id="attach" type="checkbox" checked> <span id="filename"></span></label>
+            <p class="muted">The employer may receive the file as soon as it is attached.</p>
+          </div>
+          <div id="self-id-option" hidden>
+            <label class="check"><input id="fill-self-id" type="checkbox" checked> Fill these voluntary answers</label>
+            <ul id="answer-preview"></ul>
+          </div>
+        </fieldset>
+        <p class="muted">Review the employer form before submitting. JobSwipe never clicks Submit.</p>
+      </section>
+      <p id="status" role="status" aria-live="polite"></p>
+      <section id="remaining" hidden aria-labelledby="remaining-title">
+        <h2 id="remaining-title">Needs attention</h2>
+        <ul id="remaining-list"></ul>
+      </section>
+    </div>
+    <footer class="popup-actions" aria-label="Autofill actions">
+      <button id="import" class="primary-action" type="button" hidden>Import JobSwipe profile</button>
+      <button id="fill" class="primary-action" type="button" hidden>Fill with JobSwipe</button>
+      <button id="scan" type="button" class="secondary" hidden>Check remaining fields</button>
+      <button id="clear" type="button" class="secondary" hidden>Clear imported data</button>
+    </footer>
   </main>
 </body>
 </html>

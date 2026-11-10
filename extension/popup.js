@@ -23,7 +23,11 @@ function guarded(action) {
     status.textContent = '';
     try { await action(); }
     catch (error) { status.textContent = error.message || 'Could not complete this action.'; }
-    finally { busy = false; buttons.forEach(button => { button.disabled = false; }); }
+    finally {
+      busy = false;
+      buttons.forEach(button => { button.disabled = false; });
+      if (status.textContent) status.scrollIntoView({ block: 'nearest' });
+    }
   };
 }
 
@@ -59,6 +63,7 @@ function showResult(result) {
   const gaps = result.missing.map(field => item(`${field.label} · ${field.required ? 'Required' : 'Optional'}`));
   get('remaining-list').replaceChildren(...(gaps.length ? gaps : [item('No blank fields detected. Review the page for validation messages.')]));
   get('remaining').hidden = false;
+  if (gaps.length) get('remaining-title').scrollIntoView({ block: 'nearest' });
 }
 
 function addField(parent, field, value, options) {
@@ -93,6 +98,13 @@ async function init() {
   }[kind];
   get('import-options').hidden = kind !== 'jobswipe';
   get('apply-options').hidden = kind !== 'application';
+  get('import').hidden = kind !== 'jobswipe';
+  get('fill').hidden = kind !== 'application';
+  get('scan').hidden = kind !== 'application';
+  const connection = get('connection');
+  connection.hidden = kind === 'application';
+  if (origin) connection.querySelector('summary').textContent = 'Change JobSwipe connection';
+  else if (kind === 'unsupported') connection.open = true;
 
   get('connection-form').onsubmit = guarded(async () => {
     const value = customOrigin(get('origin').value);
