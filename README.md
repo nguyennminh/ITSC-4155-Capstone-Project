@@ -27,14 +27,34 @@ The included `render.yaml` builds the Vite frontend and serves it with the Expre
 one Render web service. Persistent records are stored in MongoDB Atlas; the Render service's
 local filesystem is not used as the production database.
 
-Production defaults to `MATCHING_MODE=keyword`. This uses the existing skill-based
-ranking without importing or downloading MiniLM, so browsing does not start a local
-model on the Render instance. Greenhouse jobs, profile filters, match evidence, and
-optional Gemini explanations remain available. For semantic ranking on a server
-with sufficient resources, explicitly set `MATCHING_MODE=minilm`. Local development
-still defaults to MiniLM. A Blueprint-managed service receives the keyword setting;
-for an existing manually configured service, set it in Render's Environment page
-and redeploy. This is a resource mitigation, not proof of the earlier restart cause.
+MiniLM is prepared during the Render build and warmed in a worker thread after the
+HTTP server starts. Requests use keyword ranking immediately while the model is
+loading, unavailable, or serving another semantic request. Once ready, refresh
+matches to use MiniLM. There are no runtime model downloads. The worker uses one
+ONNX inference thread, a startup timeout, an inference timeout, and serialized
+inference. It shares the instance's memory; this change does not guarantee that
+a free instance has enough RAM. Set `MATCHING_MODE=keyword` and redeploy to disable
+model loading, or use a larger instance if measurements show memory pressure.
+
+Embedding vectors are cached in MongoDB's `embedding_cache` collection for 30 days.
+Keys include the pinned model version, text hash, and account ID for profile vectors.
+Job vectors are shared. Raw resume/profile text is not stored in this cache.
+Changed text or a changed model version produces a new key. Deleting an account
+removes its persisted profile vectors; cache failures fall back to computing vectors.
+Cache records have no public API.
+
+For an existing manually configured Render service, update its Build Command to
+`npm ci --include=dev && npm run build:render` and set `MATCHING_MODE=minilm`.
+Existing settings may override the Blueprint. Keep `MONGODB_URI` and health check
+path `/api/health`. That endpoint reports `matching: loading|ready|unavailable|disabled`;
+a missing model never makes the API health check fail. Logs report warm-up duration
+and process RSS. A failed worker stays unavailable until restart rather than looping.
+
+For local development, run `npm run model:prepare` once before `npm run server`.
+The pinned model files are stored under `.cache/models/minilm`, ignored by Git.
+`MINILM_MODEL_DIR` can override that location; it must be the same at build and runtime.
+A failed model download fails the Render build so it cannot silently deploy missing
+files. If you deliberately deploy without model files, choose keyword mode.
 
 1. Create a MongoDB Atlas cluster and a database user with access to the application
    database. Configure Atlas network access to allow connections from Render. For services
@@ -46,7 +66,7 @@ and redeploy. This is a resource mitigation, not proof of the earlier restart ca
    prompted. The blueprint sets `DB_NAME=jobswipe`. Greenhouse is the default job source and needs no API key. Set
    `GREENHOUSE_BOARDS` if you want to override the default employer boards,
    and `GEMINI_API_KEY` if you want Gemini features.
-4. Render runs `npm ci && npm run build`, then `npm start`. The service listens on Render's
+4. Render runs `npm ci --include=dev && npm run build:render`, then `npm start`. The service listens on Render's
    assigned `PORT`; `/api/health` is its health check. The same-origin frontend/API setup
    does not require an `APP_ORIGINS` override.
 

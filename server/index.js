@@ -5,6 +5,7 @@ import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './app.js';
 import { connectMongoStore } from './store.js';
+import { createLocalMatcher } from './services/localMatcher.js';
 
 if (!process.env.MONGODB_URI?.trim()) {
   console.error('MONGODB_URI is required. Configure MongoDB in .env or the hosting environment.');
@@ -24,7 +25,8 @@ try {
   process.exit(1);
 }
 console.log(`MongoDB ready in ${Date.now() - startedAt} ms.`);
-const app = createApp({ store });
+const rank = createLocalMatcher({ persistentCache: store.embeddingCache });
+const app = createApp({ store, rank });
 const distDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../dist');
 const indexFile = resolve(distDirectory, 'index.html');
 if (existsSync(indexFile)) {
@@ -35,6 +37,8 @@ if (existsSync(indexFile)) {
 const port = Number(process.env.PORT || 3001);
 const server = app.listen(port, '0.0.0.0', () => {
   console.log(`JobSwipe ready on port ${port}`);
+  console.log(`[MiniLM] ${rank.status() === 'disabled' ? 'Disabled' : 'Starting background warm-up'}; process RSS ${Math.round(process.memoryUsage().rss / 1048576)} MiB.`);
+  void rank.start();
 });
 
 for (const signal of ['SIGINT', 'SIGTERM']) {
@@ -44,7 +48,7 @@ for (const signal of ['SIGINT', 'SIGTERM']) {
         console.error('Failed to close the HTTP server cleanly.', error);
         process.exitCode = 1;
       }
-      try { await store.close(); }
+      try { await rank.close(); await store.close(); }
       catch (closeError) {
         console.error('Failed to close the database connection cleanly.', closeError);
         process.exitCode = 1;

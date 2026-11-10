@@ -47,7 +47,8 @@ export function createApp({ store: providedStore, extract = extractText, explain
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
   // Render's liveness probe is independent of client origin checks and rate limits.
-  app.get('/api/health', (req, res) => res.set('Cache-Control', 'no-store').json({ ok: true, aiConfigured: Boolean(process.env.GEMINI_API_KEY) }));
+  app.get('/api/health', (req, res) => res.set('Cache-Control', 'no-store').json({ ok: true,
+    aiConfigured: Boolean(process.env.GEMINI_API_KEY), matching: rank.status?.() || 'custom' }));
   app.use('/api', (req, res, next) => {
     res.set('Cache-Control', 'no-store');
     const allowed = process.env.APP_ORIGINS
@@ -225,7 +226,7 @@ export function createApp({ store: providedStore, extract = extractText, explain
     const profile = JSON.parse(req.user.profile_json);
     if (!profile.skills.trim()) throw new ApiError(422, 'Add skills from your resume or profile before matching jobs.');
     const jobs = await jobProvider.getJobs(searchOptions(profile));
-    const result = await rank(profile, jobs);
+    const result = await rank(profile, jobs, { userId: req.user.id });
     res.json({ jobs, ...result, jobSource: jobProvider.source, sampleJobs: false });
   });
   app.post('/api/jobs/explain', async (req, res) => {

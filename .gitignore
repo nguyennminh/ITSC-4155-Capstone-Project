@@ -1,5 +1,6 @@
 # Installed dependencies
 node_modules/
+.cache/
 
 # Production build output
 dist/

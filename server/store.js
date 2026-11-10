@@ -2,6 +2,7 @@ import { randomUUID } from 'node:crypto';
 import { MongoClient } from 'mongodb';
 import { emptyProfile } from '../src/data/mockData.js';
 import { mongoGoogleStore } from './googleStore.js';
+import { createMongoEmbeddingCache } from './services/embeddingCache.js';
 
 export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseName = process.env.DB_NAME || 'jobswipe') {
   if (!uri) throw new Error('MONGODB_URI must be configured to use persistent MongoDB storage.');
@@ -32,11 +33,15 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
   }
 
   const mapUser = document => document ? { ...document, id: document._id } : undefined;
-  let google;
-  try { google = await mongoGoogleStore(db, client, mapUser); }
+  let google, embeddingCache;
+  try {
+    google = await mongoGoogleStore(db, client, mapUser);
+    embeddingCache = await createMongoEmbeddingCache(db);
+  }
   catch (error) { await client.close(); throw error; }
   return {
     ...google,
+    embeddingCache,
     close: () => client.close(),
     async applications(id) {
       const rows = await applications.find({ user_id: id }).sort({ started_at: -1 }).toArray();
@@ -134,6 +139,7 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
         sessions.deleteMany({ user_id: id }),
         drafts.deleteMany({ user_id: id }),
         resumes.deleteMany({ user_id: id }),
+        embeddingCache.deleteForUser(String(id)),
         users.deleteOne({ _id: id }),
       ]);
     },
