@@ -78,7 +78,6 @@ export default function ResumeWorkflow({ profile, resume, onConfirm, onCancel, o
     </ResumeUpload>
     <p className="muted">Parsing uploads the file to JobSwipe. The original resume and extracted text are saved privately to your account for review. Scanned PDFs are not supported.</p>
     <div className="actions">
-      <button className="primary" disabled={!file || loading} onClick={() => parse(file)}>{loading ? 'Parsing…' : 'Parse resume'}</button>
       <button onClick={onCancel}>Cancel</button>
     </div>
     {loading && <p role="status">Reading your resume. This can take a few seconds.</p>}
