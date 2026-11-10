@@ -4,13 +4,26 @@ import { existsSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { createApp } from './app.js';
-import { connectMongoStore, openStore } from './store.js';
+import { connectMongoStore } from './store.js';
 
-if (process.env.NODE_ENV === 'production' && !process.env.MONGODB_URI) {
-  throw new Error('MONGODB_URI is required in production; refusing to start with local-only storage.');
+if (!process.env.MONGODB_URI?.trim()) {
+  console.error('MONGODB_URI is required. Configure MongoDB in .env or the hosting environment.');
+  process.exit(1);
 }
 
-const store = process.env.MONGODB_URI ? await connectMongoStore() : openStore();
+const startedAt = Date.now();
+console.log('Connecting to MongoDB and verifying indexes.');
+let store;
+try {
+  store = await connectMongoStore(process.env.MONGODB_URI.trim());
+} catch (error) {
+  // Driver errors can include connection details. Log only the error class and numeric code.
+  const kind = /^[A-Za-z][A-Za-z0-9_]*$/.test(error?.name) ? error.name : 'DatabaseError';
+  const code = typeof error?.code === 'number' ? `; code ${error.code}` : '';
+  console.error(`MongoDB startup failed after ${Date.now() - startedAt} ms (${kind}${code}). Check MONGODB_URI, network access, and database permissions.`);
+  process.exit(1);
+}
+console.log(`MongoDB ready in ${Date.now() - startedAt} ms.`);
 const app = createApp({ store });
 const distDirectory = resolve(dirname(fileURLToPath(import.meta.url)), '../dist');
 const indexFile = resolve(distDirectory, 'index.html');

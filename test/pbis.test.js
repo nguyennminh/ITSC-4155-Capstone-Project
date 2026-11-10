@@ -5,7 +5,7 @@ import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { once } from 'node:events';
 import { createApp } from '../server/app.js';
-import { openStore } from '../server/store.js';
+import { openStore } from './support/sqlite-store.js';
 import { extractText } from '../server/services/extractText.js';
 import { parseResumeFields } from '../server/services/resumeFields.js';
 import { qualificationText } from '../server/services/matching.js';

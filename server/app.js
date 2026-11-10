@@ -8,7 +8,7 @@ import { safeExternalUrl } from '../src/services/linkService.js';
 import { extractText } from './services/extractText.js';
 import { parseResumeFields } from './services/resumeFields.js';
 import { ApiError, matchJobs } from './services/aiMatcher.js';
-import { openStore, publicUser } from './store.js';
+import { publicUser } from './store.js';
 import { hashPassword, verifyPassword, sessionHash, issueSession, clearSession } from './auth.js';
 import { getResumeSuggestions } from './services/resumeSuggestions.js';
 import { installGoogleAuth } from './googleAuth.js';
@@ -27,7 +27,8 @@ const profileSchema = z.object({
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
 });
-export function createApp({ store: providedStore = openStore(), extract = extractText, explain = matchJobs, rank = createLocalMatcher(), jobProvider = configuredJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20 } = {}) {
+export function createApp({ store: providedStore, extract = extractText, explain = matchJobs, rank = createLocalMatcher(), jobProvider = configuredJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20 } = {}) {
+  if (!providedStore) throw new Error('A connected store is required to create the JobSwipe API.');
   const store = new Proxy(providedStore, {
     get(target, property, receiver) {
       const method = Reflect.get(target, property, receiver);
@@ -45,6 +46,8 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
   app.locals.store = store;
   app.disable('x-powered-by');
   app.set('trust proxy', 1);
+  // Render's liveness probe is independent of client origin checks and rate limits.
+  app.get('/api/health', (req, res) => res.set('Cache-Control', 'no-store').json({ ok: true, aiConfigured: Boolean(process.env.GEMINI_API_KEY) }));
   app.use('/api', (req, res, next) => {
     res.set('Cache-Control', 'no-store');
     const allowed = process.env.APP_ORIGINS
@@ -56,7 +59,6 @@ export function createApp({ store: providedStore = openStore(), extract = extrac
   app.use('/api', rateLimit({ windowMs: 60000, limit: apiLimit, standardHeaders: 'draft-8', legacyHeaders: false,
     message: { error: 'Too many requests. Wait a minute and retry.' } }));
   app.use(express.json({ limit: '100kb' }));
-  app.get('/api/health', (req, res) => res.json({ ok: true, aiConfigured: Boolean(process.env.GEMINI_API_KEY) }));
   const authAttempts = rateLimit({ windowMs: 60000, limit: authLimit, message: { error: 'Too many sign-in attempts. Wait a minute.' } });
   app.use(['/api/auth/register', '/api/auth/login'], authAttempts);
   installGoogleAuth(app, { store, authAttempts, clientId: googleClientId, verify: verifyGoogle });

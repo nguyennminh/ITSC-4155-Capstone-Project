@@ -15,10 +15,11 @@ browser. Resume files (PDF/DOCX, up to 10 MB) are stored privately with the acco
 downloaded while signed in, and can be deleted. Removing a saved job deletes that user's
 saved-job record.
 
-For local development, the server uses SQLite at `server/data/jobswipe.sqlite` by default.
-When `MONGODB_URI` is set, it uses MongoDB instead. Production startup refuses to use
-SQLite, so a deployment cannot silently fall back to an ephemeral local database. Database
-read/write failures are logged by the server and returned as a retryable API error.
+JobSwipe uses MongoDB for local development and production. The server requires
+`MONGODB_URI` and starts listening only after connecting and checking its indexes.
+Startup logs distinguish the MongoDB connection step from the HTTP server becoming
+ready. Automated tests can inject an isolated SQLite fixture without connecting to
+the team's database. Existing local SQLite files are not migrated by this change.
 
 ## Deploy on Render
 
@@ -40,8 +41,16 @@ local filesystem is not used as the production database.
    assigned `PORT`; `/api/health` is its health check. The same-origin frontend/API setup
    does not require an `APP_ORIGINS` override.
 
-For local MongoDB development, set `MONGODB_URI` and optionally `DB_NAME` in an untracked
-`.env` file. Without a MongoDB URI, non-production runs continue to use local SQLite.
+For local development, copy `.env.example` to `.env` and set `MONGODB_URI` to a
+development MongoDB database (local MongoDB or a separate Atlas database).
+Set `DB_NAME` if using a database other than `jobswipe`. Then run
+`npm run server` and `npm run dev` in separate terminals. Keep the production
+database separate from local development and tests.
+
+The Greenhouse provider already caches public job boards in memory for ten minutes.
+This cache resets when the service restarts and is separate from saved jobs and
+application history in MongoDB. Render's `/api/health` route does not read listings
+or depend on the API rate limiter.
 
 ## Google sign-in
 

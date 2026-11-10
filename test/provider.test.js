@@ -5,7 +5,6 @@ import { normalizeJobs, createJobProvider } from '../server/services/jobProvider
 import { skillCatalog } from '../src/data/skillCatalog.js';
 import { matchJobs } from '../server/services/aiMatcher.js';
 import { safeExternalUrl } from '../src/services/linkService.js';
-import { openStore } from '../server/store.js';
 import { createApp } from '../server/app.js';
 import { emptyProfile } from '../src/data/mockData.js';
 const row = { id:'123', title:'React developer', company:{display_name:'Example'}, location:{display_name:'Charlotte'}, description:'Build React and SQL apps.', redirect_url:'https://example.org/jobs/123' };

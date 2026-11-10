@@ -25,3 +25,10 @@ test('network failures are retryable and cancelled requests do not expire a sess
   await assert.rejects(api('/api/profile'), { name: 'AbortError' });
   assert.equal(expired, false);
 });
+
+test('non-JSON hosting errors describe server unavailability and preserve API errors', async t => {
+  const fetch = t.mock.method(globalThis, 'fetch', async () => new Response('', { status: 503 }));
+  await assert.rejects(api('/api/jobs/match'), /server is temporarily unavailable \(HTTP 503\)/);
+  fetch.mock.mockImplementation(async () => Response.json({ error: 'Database unavailable.' }, { status: 503 }));
+  await assert.rejects(api('/api/jobs/match'), /Database unavailable/);
+});

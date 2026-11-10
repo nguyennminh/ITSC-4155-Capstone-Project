@@ -19,7 +19,8 @@ Greenhouse-hosted application pages and leaves submission to you.
    Add optional links, current work details, or voluntary self-ID answers
    in the extension, then click **Import JobSwipe profile**.
 
-For a local JobSwipe install, use Node 24, run `npm ci`, then start
+For a local JobSwipe install, use Node 24, run `npm ci`, and set
+`MONGODB_URI` in `.env` to a development MongoDB database. Then start
 `npm run server` and `npm run dev` in separate terminals. Open
 <http://127.0.0.1:5173/>. The extension recognizes the regular localhost
 app automatically. Reading a saved profile or résumé does not require an
