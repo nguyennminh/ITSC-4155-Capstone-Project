@@ -1,0 +1,79 @@
+/* Shared listing cards and the Discover deck. */
+.job-card.card {
+  padding: clamp(1.25rem, 3vw, 2rem);
+  border-radius: 24px;
+  background: var(--surface, #fff);
+  box-shadow: 0 14px 40px #1537430a;
+  overflow: hidden;
+}
+.job-card-topline { display: flex; align-items: center; justify-content: space-between; gap: .75rem; flex-wrap: wrap; }
+.company-initial { display: grid; place-items: center; width: 58px; height: 58px; flex: 0 0 auto; border-radius: 17px; background: var(--soft); color: var(--accent-dark); font-size: 1.8rem; font-weight: 800; }
+.job-fit-pill { display: inline-flex; align-items: center; gap: .35rem; border-radius: 999px; padding: .4rem .7rem; background: var(--soft); color: var(--accent-dark); font-size: .75rem; font-weight: 700; }
+.job-card .job-card-heading h2 { font-size: clamp(1.5rem, 3vw, 1.85rem); margin: 1.5rem 0 .35rem; letter-spacing: -.035em; }
+.job-card-heading p { margin: 0 0 1.2rem; color: var(--muted); font-weight: 500; }
+.job-card-meta { display: flex; flex-wrap: wrap; gap: .55rem 1rem; color: var(--muted); font-size: .85rem; }
+.job-card-meta span { display: inline-flex; align-items: center; gap: .4rem; min-width: 0; }
+.job-card-meta svg { flex-shrink: 0; }
+.job-card-salary { margin: 1.3rem 0 1rem; font-size: 1.2rem; font-weight: 750; letter-spacing: -.025em; }
+.job-card .job-card-description { margin: .5rem 0 1rem; color: var(--muted); line-height: 1.75; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; white-space: pre-wrap; }
+.job-excerpt-label { font-size: .75rem; }
+.job-card .job-card-skills { margin: 1.2rem 0 1.5rem; gap: .45rem; }
+.job-card-skills span { font-size: .75rem; padding: .3rem .65rem; background: var(--soft); color: var(--muted); border-radius: 8px; }
+.job-card-footer { display: flex; justify-content: space-between; align-items: center; gap: .5rem 1rem; flex-wrap: wrap; padding-top: 1rem; border-top: 1px solid var(--border); font-size: .75rem; }
+.job-card-footer a { display: inline-flex; align-items: center; gap: .25rem; }
+.job-card-footer button { padding: .4rem .6rem; font-size: .8rem; }
+.job-card .job-card-actions { padding-top: 1rem; border-top: 1px solid var(--border); }
+.discover-deck-area { width: min(100%, 520px); margin: 2rem auto 1rem; }
+.discover-deck { position: relative; isolation: isolate; padding-bottom: 12px; }
+.discover-deck .swipe-surface { width: 100%; max-width: 100%; margin: 0; }
+.discover-deck .job-card { margin: 0; }
+.deck-backing { position: absolute; z-index: -1; inset: 14px 12px 0; border: 1px solid var(--border); border-radius: 24px; background: var(--soft); transform: rotate(2deg); pointer-events: none; }
+.discover-actions { display: grid; grid-template-columns: repeat(3, 64px); justify-content: center; align-items: center; gap: 1rem 1.75rem; margin: 1.5rem 0 0; padding-bottom: 2.5rem; }
+.discover-action { position: relative; display: grid; place-items: center; width: 64px; height: 64px; padding: 0; border-radius: 50%; box-shadow: 0 5px 15px #1537430a; }
+.discover-action .action-caption { position: absolute; top: calc(100% + 8px); left: 50%; transform: translateX(-50%); font-size: .8rem; font-weight: 500; white-space: nowrap; color: var(--muted); }
+.discover-actions .action-pass { color: #b64e58; }
+.discover-actions .action-save { color: var(--accent-dark); background: var(--soft); }
+.discover-actions .action-save svg { fill: currentColor; }
+.discover-actions .action-apply { width: 72px; min-width: 72px; max-width: none; height: 72px; aspect-ratio: 1; justify-self: center; }
+.discover-actions .action-apply svg { fill: currentColor; }
+.discover-actions > .action-pass { grid-column: 1; grid-row: 1; }
+.discover-actions .action-apply { grid-column: 2; grid-row: 1; }
+.discover-actions > .action-save { grid-column: 3; grid-row: 1; }
+.apply-control-circle { display: contents; }
+.apply-control-circle .apply-disclosure, .apply-control-circle .apply-error { grid-column: 1 / -1; margin-top: 2rem; font-size: .9rem; }
+.apply-control-circle .apply-disclosure { padding: 1rem; border: 1px solid var(--border); border-radius: 16px; background: var(--surface, #fff); }
+.gesture-hints { display: flex; justify-content: space-between; align-items: center; gap: .75rem; color: var(--muted); font-size: .75rem; text-align: center; }
+[data-theme="dark"] .company-initial, [data-theme="dark"] .job-fit-pill, [data-theme="dark"] .discover-actions .action-save { color: var(--accent); }
+[data-theme="dark"] .discover-actions .action-pass { color: #f3a0a9; }
+@media (max-width: 400px) {
+  .job-card.card { padding: 1.15rem; border-radius: 20px; }
+  .discover-actions { gap: 1rem; }
+  .gesture-hints { font-size: .7rem; }
+}
+
+/* The evidence summary sits beside the deck when there is room. */
+.discover-match-layout { display: grid; grid-template-columns: minmax(0, 1fr); gap: 2rem; width: min(100%, 520px); margin: 2rem auto 1rem; align-items: start; }
+.discover-match-layout .discover-deck-area { width: 100%; margin: 0; }
+.match-insights { min-width: 0; padding: 1.5rem; border: 1px solid var(--border); border-radius: 20px; background: var(--surface, #fff); box-shadow: 0 5px 20px #15374306; }
+.insight-heading { display: flex; align-items: center; gap: .75rem; }
+.insight-heading > svg { flex-shrink: 0; color: var(--accent-dark); }
+.insight-heading h2 { margin: 0; font-size: 1rem; letter-spacing: -.02em; }
+.insight-heading p, .insight-score p, .insight-factors p { margin: .2rem 0 0; font-size: .8rem; line-height: 1.6; color: var(--muted); }
+.insight-score { display: flex; align-items: center; gap: 1rem; padding: 1.5rem 0; border-bottom: 1px solid var(--border); }
+.insight-score strong { font-size: .85rem; }
+.insight-score-ring { flex: 0 0 76px; width: 76px; height: 76px; padding: 5px; border-radius: 50%; background: conic-gradient(var(--accent) var(--match-progress), var(--soft) 0); }
+.insight-score-ring > span { display: flex; flex-direction: column; justify-content: center; align-items: center; width: 100%; height: 100%; border-radius: 50%; background: var(--surface, #fff); line-height: 1.1; }
+.insight-score-ring b { font-size: 1.4rem; }
+.insight-score-ring small { font-size: .65rem; margin-top: .2rem; color: var(--muted); }
+.insight-factors { list-style: none; padding: 0; margin: 1.4rem 0; display: grid; gap: 1.2rem; }
+.insight-factors li { display: flex; align-items: flex-start; gap: .65rem; }
+.insight-factors svg { flex: 0 0 16px; margin-top: .2rem; color: var(--accent-dark); }
+.insight-factors strong { font-size: .85rem; }
+.insight-factors small { display: block; margin-top: .3rem; font-size: .75rem; }
+.insight-gap svg { color: var(--muted); }
+.insight-details { display: flex; align-items: center; justify-content: space-between; gap: .6rem; width: 100%; font-size: .8rem; }
+.insight-footnote, .insight-context { color: var(--muted); font-size: .75rem; line-height: 1.6; }
+.insight-footnote { margin: 1rem 0 0; padding-top: 1rem; border-top: 1px solid var(--border); }
+@media (min-width: 1100px) {
+  .discover-match-layout { width: min(100%, 864px); grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1.5rem; }
+}

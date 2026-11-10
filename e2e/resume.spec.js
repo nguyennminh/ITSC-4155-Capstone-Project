@@ -29,7 +29,7 @@ test('PBIs 10/11/14: upload, review edits/removals, reload, re-login and match s
   await expect(page.getByRole('button', { name: 'Confirm information' })).toBeDisabled();
   await page.getByLabel('I reviewed these fields').check();
   await page.getByRole('button', { name: 'Confirm information' }).click();
-  await expect(page.getByRole('heading',{name:'Discover jobs',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Your matches',exact:true})).toBeVisible();
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name:'Rank jobs with Gemini' }).click();
   await expect(page.getByRole('heading', { name: 'Frontend Developer', exact:true })).toBeVisible();
@@ -37,11 +37,12 @@ test('PBIs 10/11/14: upload, review edits/removals, reload, re-login and match s
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name:'Rank jobs with Gemini' }).click();
   await expect(page.getByRole('heading', { name: 'Frontend Developer', exact:true })).toBeVisible();
-  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click();
   await expect(page.getByRole('textbox', { name: 'Education', exact: true })).toHaveValue('Corrected university');
   await expect(page.getByRole('group', {name:'Experience 1',exact:true})).toHaveCount(0);
   await expect(page.getByRole('group', {name:'Projects 1',exact:true})).toHaveCount(0);
   await expect(page.getByRole('textbox', { name: 'Certifications', exact: true })).toHaveValue('');
+  if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
   await page.getByRole('button', { name: 'Sign out' }).click();
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
   await page.getByLabel('Email', { exact: true }).fill(email);
@@ -50,7 +51,7 @@ test('PBIs 10/11/14: upload, review edits/removals, reload, re-login and match s
   await page.getByRole('checkbox').check();
   await page.getByRole('button', { name:'Rank jobs with Gemini' }).click();
   await expect(page.getByRole('heading', { name: 'Frontend Developer', exact:true })).toBeVisible();
-  await page.getByRole('button', { name: 'Profile', exact: true }).click();
+  await page.getByRole('button', { name: 'Preferences', exact: true }).click();
   await page.getByLabel('Skills', { exact: true }).fill('React, JavaScript, CSS');
   await page.getByRole('button', { name: 'Save and confirm changes' }).click();
   await expect(page.getByRole('status')).toContainText('Confirmed profile saved');

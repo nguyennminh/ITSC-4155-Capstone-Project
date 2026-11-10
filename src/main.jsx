@@ -4,6 +4,9 @@ import App from './App.jsx';
 import './styles.css';
 import "./job-swipe-animation.css";
 import "./responsive.css";
+import "./sidebar.css";
+import "./job-cards.css";
+import "./page-header.css";
 
 createRoot(document.getElementById('root')).render(<App />);
 

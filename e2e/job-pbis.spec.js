@@ -8,7 +8,7 @@ test('details preserve swipe progress; applications persist; AI changes order', 
   await page.getByRole('button',{name:'Parse resume',exact:true}).click();
   await page.getByLabel('Skills (comma-separated)').fill('React, JavaScript, SQL, Python, Git, CSS');
   await page.getByLabel('I reviewed these fields').check();await page.getByRole('button',{name:'Confirm information'}).click();
-  await expect(page.getByRole('heading',{name:'Discover jobs',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'Your matches',exact:true})).toBeVisible();
   await page.getByRole('checkbox').check();await page.getByRole('button',{name:'Rank jobs with Gemini'}).click();
   await expect(page.getByRole('button',{name:'View details'})).toBeVisible();
   await page.getByRole('button',{name:'Skip',exact:true}).click();

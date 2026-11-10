@@ -1,13 +1,14 @@
 import React, { useState } from 'react';
 import ApplyButton from '../components/ApplyButton.jsx';
 import JobCard from '../components/JobCard.jsx';
+import PageHeader from '../components/PageHeader.jsx';
 import { filterJobs } from '../services/jobService.js';
 
 export default function SavedJobs({ jobs, saved, loading, error, onRetry, onRemove, onApply, onDetails, recommendations }) {
   const [query, setQuery] = useState('');
   const [mode, setMode] = useState('Any');
   const visible = filterJobs(jobs.filter(job => saved.includes(job.id)), query, mode, 'Any');
-  return <section><h1>Saved jobs</h1><div className="filters">
+  return <section><PageHeader title="Saved jobs" subtitle={loading ? 'Loading saved roles…' : error ? 'Your shortlist, all in one place' : `${saved.length} ${saved.length === 1 ? 'role' : 'roles'} waiting for a closer look`}/><div className="filters">
     <label>Search saved jobs<input value={query} onChange={event => setQuery(event.target.value)} placeholder="Title, company, location"/></label>
     <label>Work arrangement<select value={mode} onChange={event => setMode(event.target.value)}>{['Any','Remote','Hybrid','On-site'].map(x => <option key={x}>{x}</option>)}</select></label>
   </div>

@@ -20,7 +20,7 @@ import Profile from "./pages/Profile.jsx";
 
 import { emptyProfile } from "./data/mockData.js";
 import { getJobs } from "./services/jobService.js";
-import { api, jsonPost, onSessionExpired } from "./services/resumeService.js";
+import { api, getMatches, jsonPost, onSessionExpired } from "./services/resumeService.js";
 import { getSavedJobs, removeSavedJob as deleteSavedJob, saveJob as persistSavedJob } from "./services/savedJobService.js";
 import { deleteAccount } from "./services/resumeService.js";
 
@@ -54,7 +54,6 @@ export default function App() {
   const [recommendations, setRecommendations] = useState([]);
   const [detail, setDetail] = useState(null);
   const detailTrigger = useRef(null);
-  function receiveMatches(result) { setJobs(result.jobs); setRecommendations(result.matches); }
   function openDetails(job, recommendation) {
     detailTrigger.current = document.activeElement;
     setDetail({ job, recommendation });
@@ -64,7 +63,11 @@ export default function App() {
     requestAnimationFrame(() => detailTrigger.current?.focus());
   }
   // Feedback
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
+  const [matchNotice, setMatchNotice] = useState("");
+  const [matchesReady, setMatchesReady] = useState(false);
+  const matchingVersion = useRef(0);
+  const matchingPending = useRef(false);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
 
@@ -84,26 +87,40 @@ export default function App() {
     finally { setSessionLoading(false); }
   }
 
-  async function loadJobs({ refresh = false } = {}) {
-    const version = accountVersion.current;
-    setLoading(true);
-    setError("");
+  function clearMatching() {
+    matchingVersion.current++;
+    matchingPending.current = false;
+    setJobs([]); setRecommendations([]); setMatchesReady(false);
+    setLoading(false); setError(""); setMatchNotice(""); setDetail(null);
+  }
 
+  async function loadMatches({ refresh = false } = {}) {
+    if (matchingPending.current) return;
+    const version = accountVersion.current;
+    const request = ++matchingVersion.current;
+    const isCurrent = () => version === accountVersion.current && request === matchingVersion.current;
+    matchingPending.current = true;
+    setLoading(true); setError(""); setMatchNotice("");
+    setJobs([]); setRecommendations([]); setMatchesReady(false); setDetail(null);
     try {
-      const results = await getJobs({ refresh });
-      if (version !== accountVersion.current) return;
-      setJobs(results);
+      // Refresh the provider cache before ranking the new listings.
+      if (refresh) {
+        await getJobs({ refresh: true });
+        if (!isCurrent()) return;
+      }
+      const result = await getMatches();
+      if (!isCurrent()) return;
+      setJobs(result.jobs); setRecommendations(result.matches);
+      setMatchesReady(true); setMatchNotice(result.message || "");
     } catch (err) {
-      if (version === accountVersion.current) setError(err.message || "Could not load jobs. Please retry.");
+      if (isCurrent()) setError(err.message || "Could not load matches. Please retry.");
     } finally {
-      if (version === accountVersion.current) setLoading(false);
+      if (isCurrent()) { matchingPending.current = false; setLoading(false); }
     }
   }
 
   function refreshJobs() {
-    setRecommendations([]);
-    setDetail(null);
-    return loadJobs({ refresh: true });
+    return loadMatches({ refresh: true });
   }
 
   function enter(user) {
@@ -112,7 +129,7 @@ export default function App() {
     getApplications().then(result => { if (version === accountVersion.current) setApplications(result.applications); })
       .catch(err => { if (version === accountVersion.current) setMessage(err.message); });
     loadSavedJobs();
-    setDetail(null); setRecommendations([]);
+    clearMatching();
     setProfile(user.profile);
     setProfileConfirmed(user.confirmed);
     setRole(user.role);
@@ -122,8 +139,7 @@ export default function App() {
     setApplications([]);
     setMessage("");
     setLoginNotice("");
-    if (user.confirmed && user.profile.skills.trim()) loadJobs();
-    else { setJobs([]); setLoading(false); setError(""); }
+    if (user.role !== "Recruiter" && user.confirmed && user.profile.skills.trim()) loadMatches();
     setPage(user.role === "Recruiter" ? "recruiter" : user.confirmed ? "discover" : "onboarding");
   }
 
@@ -154,10 +170,8 @@ export default function App() {
     if (version !== accountVersion.current) throw new Error('Account changed. Sign in and retry.');
     setProfile(user.profile);
     setProfileConfirmed(user.confirmed);
-    setRecommendations([]);
-    setDetail(null);
-    if (updatedProfile.skills.trim()) await loadJobs();
-    else { setJobs([]); setLoading(false); setError(""); }
+    clearMatching();
+    if (role !== "Recruiter" && user.confirmed && user.profile.skills.trim()) loadMatches();
   }
 
   async function confirmResume(updatedProfile, file) {
@@ -236,7 +250,7 @@ export default function App() {
     setSavedListings([]);
     setApplications([]);
     setMessage("");
-    setDetail(null); setRecommendations([]); setJobs([]);
+    clearMatching();
     setRole("Job seeker");
     setSessionError("");
     setLoginNotice(notice);
@@ -254,25 +268,22 @@ export default function App() {
     return <Login onEnter={enter} notice={loginNotice} />;
   }
 
-  const isJobPage = page === "discover";
-  const renderVersion = accountVersion.current;
 
   return (
-    <>
+    <div className="app-layout">
       <Navigation
         page={page}
         navigate={navigate}
         role={role}
         logout={logout}
         logoutBusy={logoutBusy}
+        profile={profile}
+        savedCount={saved.length}
+        inert={detail ? true : undefined}
       />
 
       {detail && <JobDetails {...detail} onClose={closeDetails} onStart={apply}/>}
       <div className="container" inert={detail ? true : undefined}>
-        <p className="demo-label"><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> ·
-          Confirmed profiles, saved jobs, and application tracking are saved
-        </p>
-
         {message && (
           <p className="notice" role="status">
             {message}
@@ -300,20 +311,7 @@ export default function App() {
           />
         )}
 
-        {loading && isJobPage && (
-          <p role="status">Loading jobs...</p>
-        )}
-
-        {error && isJobPage && (
-          <div className="notice" role="alert">
-            <p>{error}</p>
-            <button type="button" onClick={loadJobs}>
-              Retry
-            </button>
-          </div>
-        )}
-
-        {!loading && !error && page === "discover" && (
+        {page === "discover" && (
           <Discover
             key={`${accountId}:${JSON.stringify(profile)}`}
             accountId={accountId}
@@ -326,7 +324,11 @@ export default function App() {
             onApply={apply}
             onDetails={openDetails}
             recommendations={recommendations}
-            onResults={result => { if (renderVersion === accountVersion.current) receiveMatches(result); }}
+            loading={loading}
+            matchingError={error}
+            notice={matchNotice}
+            matchesReady={matchesReady}
+            onRetry={() => loadMatches()}
             onRefreshJobs={refreshJobs}
           />
         )}
@@ -343,7 +345,6 @@ export default function App() {
             onApply={apply}
             onDetails={openDetails}
             recommendations={recommendations}
-            onResults={result => { if (renderVersion === accountVersion.current) receiveMatches(result); }}
           />
         )}
 
@@ -358,7 +359,11 @@ export default function App() {
 
 
         {page === "recruiter" && <Recruiter />}
+
+        <p className="demo-label"><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> ·
+          Confirmed profiles, saved jobs, and application tracking are saved
+        </p>
       </div>
-    </>
+    </div>
   );
 }

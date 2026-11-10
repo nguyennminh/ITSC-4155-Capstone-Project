@@ -1,102 +1,95 @@
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from 'react';
+import DropzoneUploader from '../Components/DropzoneUploader.jsx';
 
-const MAX_FILE_SIZE = 10 * 1024 * 1024;
+export default function ResumeUpload({ resume, savedResume, onResumeChange, onRemoveSaved, children }) {
+  const [error, setError] = useState('');
+  const [preview, setPreview] = useState(null);
+  const uploaderRef = useRef(null);
+  const currentResume = resume || savedResume;
+  const isPdf = /\.pdf$/i.test(currentResume?.name || '');
 
-export default function ResumeUpload({ resume, savedResume, onResumeChange, onRemoveSaved }) {
-  const [error, setError] = useState("");
-  const inputRef = useRef(null);
-
-  function handleFileChange(event) {
-    const file = event.target.files[0];
-
-    // Reset so selecting the same file again triggers a change.
-    event.target.value = "";
-
-    if (!file) return;
-
-    const extension = file.name.split(".").pop().toLowerCase();
-
-    if (!["pdf", "docx"].includes(extension)) {
-      setError("Please select a PDF or DOCX file.");
-      return;
+  useEffect(() => {
+    if (!currentResume) return;
+    const controller = new AbortController();
+    let url;
+    async function loadPreview() {
+      try {
+        let blob = resume;
+        if (!resume && isPdf) {
+          const response = await fetch('/api/resumes/file', {
+            credentials: 'same-origin', signal: controller.signal,
+          });
+          if (!response.ok) throw new Error('Preview unavailable');
+          blob = await response.blob();
+        }
+        if (controller.signal.aborted) return;
+        if (blob) {
+          // Some local files have no MIME type; PDF viewers need the correct type.
+          url = URL.createObjectURL(isPdf ? new Blob([blob], { type: 'application/pdf' }) : blob);
+        }
+        setPreview({ source: currentResume, url });
+      } catch {
+        if (!controller.signal.aborted) setPreview({ source: currentResume, failed: true });
+      }
     }
+    loadPreview();
+    return () => {
+      controller.abort();
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [currentResume, resume, isPdf]);
 
-    if (file.size === 0) {
-      setError("This file is empty. Please select another file.");
-      return;
-    }
-
-    if (file.size > MAX_FILE_SIZE) {
-      setError("Your resume must be 10 MB or smaller.");
-      return;
-    }
-
-    setError("");
-    onResumeChange(file);
-  }
+  const activePreview = preview?.source === currentResume ? preview : null;
 
   function removeResume() {
     onResumeChange(null);
-    setError("");
+    setError('');
   }
 
   return (
     <section className="profile-panel" aria-labelledby="resume-heading">
       <h2 id="resume-heading">Resume</h2>
-
       <p id="resume-help">
         Select a PDF or DOCX file, up to 10 MB.
         Uploaded resumes are saved privately to your account.
       </p>
 
-      <input
-        ref={inputRef}
-        type="file"
-        accept=".pdf,.docx"
-        onChange={handleFileChange}
-        aria-label="Select your resume"
-        aria-describedby="resume-help resume-error"
-        hidden
-      />
+      {!currentResume && <DropzoneUploader ref={uploaderRef} visible={true}
+        onFileAccepted={onResumeChange} onError={setError} />}
 
-      <div className="profile-actions">
-        <button
-          type="button"
-          onClick={() => inputRef.current.click()}
-        >
-          {resume ? "Replace resume" : "Select resume"}
-        </button>
-
-        {resume && (
-          <button
-            type="button"
-            className="secondary-button"
-            onClick={removeResume}
-          >
-            Remove resume
-          </button>
-        )}
-        {savedResume && (
-          <div className="resume-details" role="status">
-            <strong>{savedResume.name}</strong>
-            <span>{(savedResume.size / 1024).toFixed(1)} KB · Saved to your account</span>
-            <a href="/api/resumes/file">Download saved resume</a>
-            <button type="button" className="secondary-button" onClick={onRemoveSaved}>Delete saved resume</button>
+      {currentResume && (
+        <div className="resume-details">
+          <div role="status">
+            <strong>{currentResume.name}</strong>
+            <span>{(currentResume.size / 1024).toFixed(1)} KB{!resume && ' · Saved to your account'}</span>
           </div>
-        )}
-      </div>
-
-      {resume && (
-        <div className="resume-details" role="status">
-          <strong>{resume.name}</strong>
-          <span>{(resume.size / 1024).toFixed(1)} KB</span>
-          <p>Selected on this device. It will be saved to your account when parsed.</p>
+          {resume && <p>Selected on this device. It will be saved to your account when parsed.</p>}
+          {isPdf && activePreview?.url && (
+            <iframe className="resume-preview" title="Resume PDF preview" src={activePreview.url} />
+          )}
+          {isPdf && !activePreview && <p role="status">Loading resume preview…</p>}
+          {activePreview?.failed && <p role="status">Could not load the preview. You can download or replace your resume.</p>}
+          {!isPdf && <p>Download your DOCX resume to view it.</p>}
+          {(!resume || activePreview?.url) && (
+            <p><a href={resume ? activePreview.url : '/api/resumes/file'} download={currentResume.name}>
+              {resume ? 'Download resume' : 'Download saved resume'}
+            </a></p>
+          )}
         </div>
       )}
 
-      <p id="resume-error" className="profile-error" role="alert">
-        {error}
-      </p>
+      <div className="profile-actions">
+        {currentResume && <button type="button" onClick={() => uploaderRef.current.open()}>Replace resume</button>}
+        {resume && <button type="button" className="secondary-button" onClick={removeResume}>Remove resume</button>}
+        {savedResume && <button type="button" className="secondary-button" onClick={onRemoveSaved}>Delete saved resume</button>}
+      </div>
+      <p id="resume-error" className="profile-error" role="alert">{error}</p>
+      {children && (
+        <div className="resume-alternative">
+          <div className="resume-divider">or</div>
+          {children}
+        </div>
+      )}
     </section>
   );
 }

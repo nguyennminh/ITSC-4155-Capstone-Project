@@ -1,5 +1,6 @@
 // Test-only API runner. Production never loads these injected fixtures.
 import { createApp } from '../../server/app.js';
 import { jobs } from '../../src/data/mockData.js';
+import { rankJobs } from '../../server/services/matching.js';
 const fixtures = jobs.map(job => ({ ...job, id: String(job.id), source: 'Test provider', postingUrl: `https://example.org/jobs/${job.id}`, applyUrl: `https://example.org/jobs/${job.id}` }));
-createApp({ apiLimit:10000, authLimit:1000, jobProvider: { getJobs: async () => fixtures }, explain: async (profile,batch) => batch.map(job => ({jobId: job.id,score: job.id === '3' ? 99 : 50,reasons:['Test-only AI assessment'],missing:[]})).sort((a,b)=>b.score-a.score) }).listen(Number(process.env.PORT || 3001),'127.0.0.1');
+createApp({ rank: async (profile, jobs) => ({ matches: rankJobs(profile, jobs), source: 'keyword' }), apiLimit:10000, authLimit:1000, jobProvider: { getJobs: async () => fixtures }, explain: async (profile,batch) => batch.map(job => ({jobId: job.id,score: job.id === '3' ? 99 : 50,reasons:['Test-only AI assessment'],missing:[]})).sort((a,b)=>b.score-a.score) }).listen(Number(process.env.PORT || 3001),'127.0.0.1');

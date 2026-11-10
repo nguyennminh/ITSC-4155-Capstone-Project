@@ -71,6 +71,7 @@ for (const role of ['Job seeker', 'Recruiter']) {
     await expect(page.getByRole('heading', { name: destination })).toBeVisible();
     await page.reload();
     await expect(page.getByRole('heading', { name: destination })).toBeVisible();
+    if (!await page.getByRole('button', { name: 'Sign out', exact: true }).isVisible()) await page.getByRole('button', { name: 'Account options', exact: true }).click();
     await page.getByRole('button', { name: 'Sign out', exact: true }).click();
     await page.getByRole('button', { name: 'Continue with Google', exact: true }).click();
     await expect(page.getByRole('heading', { name: destination })).toBeVisible();

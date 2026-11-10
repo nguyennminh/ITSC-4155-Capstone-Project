@@ -6,7 +6,7 @@ test('profile entry edits and cancel behavior', async ({ page }) => {
   await page.getByLabel('Email', { exact:true }).fill(`profile-${Date.now()}@example.org`);
   await page.getByLabel('Password', { exact:true }).fill('profile-test-password');
   await page.getByRole('button', { name: 'Create account', exact:true }).last().click();
-  await page.getByRole('button', { name:'Profile', exact:true }).click();
+  await page.getByRole('button', { name:'Preferences', exact:true }).click();
   await page.getByLabel('Phone', {exact:true}).fill('704-555-1234');
   await page.getByRole('button', {name:'Add projects', exact:true}).click();
   await page.getByRole('group', {name:'Projects 1', exact:true}).getByLabel('Title', {exact:true}).fill('JobSwipe');
@@ -16,6 +16,6 @@ test('profile entry edits and cancel behavior', async ({ page }) => {
   await page.getByRole('button', {name:'Cancel changes'}).click();
   await expect(page.getByLabel('Phone', {exact:true})).toHaveValue('704-555-1234');
   await page.reload();
-  await page.getByRole('button', {name:'Profile', exact:true}).click();
+  await page.getByRole('button', {name:'Preferences', exact:true}).click();
   await expect(page.getByRole('group', {name:'Projects 1', exact:true}).getByLabel('Title', {exact:true})).toHaveValue('JobSwipe');
 });

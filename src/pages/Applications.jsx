@@ -1,5 +1,6 @@
 
 import React from 'react';
+import PageHeader from '../components/PageHeader.jsx';
 import { safeExternalUrl } from '../services/linkService.js';
 
 export default function Applications({ applications, updateStatus, deleteApplication }) {
@@ -19,7 +20,7 @@ export default function Applications({ applications, updateStatus, deleteApplica
 
   return (
     <section>
-      <h1>Applications</h1>
+      <PageHeader title="Your applications" subtitle="Track every opportunity in one place"/>
       <p>
         Track your progress manually. Opening an external page
         does not mean you applied.

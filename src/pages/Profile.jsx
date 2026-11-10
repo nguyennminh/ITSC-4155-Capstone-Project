@@ -1,6 +1,8 @@
 import React, { useState } from "react";
+import PageHeader from "../components/PageHeader.jsx";
 import ResumeEntryEditor from "../components/ResumeEntryEditor.jsx";
 import { normalizeProfile, entryText } from "../data/profileFields.js";
+import { useDropzone } from "react-dropzone";
 
 
 export default function Profile({
@@ -81,11 +83,8 @@ export default function Profile({
 
   return (
     <main className="profile-page">
-      <h1>Manage your profile</h1>
-      <p>
-        Update your information and job preferences.
-        Saved information stays with your account when you return.
-      </p>
+      <PageHeader title="Preferences" subtitle="Update your information and job preferences."/>
+      <p>Saved information stays with your account when you return.</p>
 
       <p>Resume: {profile.resumeName || "No resume parsed yet"}</p>
 
