@@ -1,6 +1,6 @@
 import { test, expect } from '@playwright/test';
 import { emptyProfile } from '../src/data/mockData.js';
-for (const width of [320,390,768,1280]) test(`main pages fit at ${width}px`,async ({page})=>{
+for (const width of [320,390,740,741,768,1280]) test(`main pages fit at ${width}px`,async ({page})=>{
   await page.setViewportSize({width,height:900});
   await page.goto('/');
   async function fits() { expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth + 1)).toBe(true); }
@@ -11,9 +11,13 @@ for (const width of [320,390,768,1280]) test(`main pages fit at ${width}px`,asyn
   await page.request.post('/api/saved-jobs',{data:{jobId:'3'}});
   await page.request.post('/api/applications/start',{data:{jobId:'1'}});
   await page.reload();
-  for (const name of ['Preferences','Saved','Applications','Discover']) {
+  const profileLink = width <= 740 ? 'Profile' : 'Preferences';
+  for (const name of [profileLink,'Saved','Applications','Discover']) {
     await page.getByRole('button',{name,exact:true}).click();
     await expect(page.locator('h1')).toBeVisible(); await fits();
+    const content = await page.locator('.app-layout > .container').boundingBox();
+    const sidebar = await page.locator('.sidebar').boundingBox();
+    expect(content.y).toBeCloseTo(width <= 740 ? sidebar.y + sidebar.height : 0, 0);
     const navigationButton = page.getByRole('button',{name,exact:true});
     await navigationButton.focus();await expect(navigationButton).toBeFocused();
     await page.keyboard.press('Tab');
@@ -25,8 +29,9 @@ for (const width of [320,390,768,1280]) test(`main pages fit at ${width}px`,asyn
   await page.getByRole('button',{name:'Rank jobs',exact:true}).click();
   await expect(page.locator('.job-card')).toBeVisible(); await fits();
   await page.getByRole('button',{name:'View details'}).click();await expect(page.getByRole('dialog')).toBeVisible();await fits();
+  await expect(page.locator('.sidebar')).toHaveAttribute('inert', '');
   await page.keyboard.press('Escape');
-  await page.getByRole('button',{name:'Preferences',exact:true}).click();
+  await page.getByRole('button',{name:profileLink,exact:true}).click();
   await page.getByRole('button',{name:'Parse / review resume information'}).click();
   await page.getByLabel('Select your resume').setInputFiles('test/fixtures/resume.docx');
   await page.getByRole('button',{name:'Parse resume',exact:true}).click();

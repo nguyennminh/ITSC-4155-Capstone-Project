@@ -82,3 +82,82 @@ for (const width of [320, 1280]) test(`sidebar fits long account details in both
     await page.keyboard.press('Escape');
   }
 });
+
+for (const width of [320, 390, 740]) test(`mobile navigation keeps its height on short pages at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 600 });
+  await setup(page);
+  const sidebar = page.locator('.sidebar');
+  const naturalHeight = (await sidebar.boundingBox()).height;
+  await page.setViewportSize({ width, height: 1200 });
+  for (const name of ['Saved', 'Applications', 'Discover']) {
+    await page.getByRole('button', { name, exact: true }).click();
+    const bounds = await sidebar.boundingBox();
+    await page.screenshot({ path: `/tmp/jobswipe-mobile-${width}-${name.toLowerCase()}.png`, fullPage: true, animations: 'disabled' });
+    expect(bounds.height).toBeCloseTo(naturalHeight, 0);
+    const content = await page.locator('.app-layout > .container').boundingBox();
+    expect(content.y).toBeCloseTo(bounds.y + bounds.height, 0);
+  }
+});
+
+for (const width of [320, 390, 740]) test(`shared links form a fixed mobile bottom bar at ${width}px`, async ({ page }) => {
+  await page.setViewportSize({ width, height: 700 });
+  await setup(page);
+  const nav = page.getByRole('navigation', { name: 'Main navigation' });
+  const navElement = await nav.elementHandle();
+  await expect(nav).toHaveCount(1);
+  await expect(nav.getByRole('button')).toHaveText(['Discover', 'Saved0', 'Applications', 'Profile']);
+  await expect(page.getByRole('button', { name: 'Preferences', exact: true })).toBeHidden();
+  async function atBottom() {
+    const bounds = await nav.boundingBox();
+    expect(bounds.x).toBeCloseTo(0, 0);
+    expect(bounds.width).toBeCloseTo(width, 0);
+    expect(bounds.y + bounds.height).toBeCloseTo(700, 0);
+  }
+  await atBottom();
+  await nav.getByRole('button', { name: 'Profile', exact: true }).click();
+  await expect(page.getByLabel('Full name *', { exact: true })).toHaveValue('Maya Singh');
+  await expect(nav.getByRole('button', { name: 'Profile', exact: true })).toHaveAttribute('aria-current', 'page');
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  await atBottom();
+  await nav.getByRole('button', { name: 'Saved', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Saved jobs' })).toBeVisible();
+  await page.setViewportSize({ width: 741, height: 700 });
+  expect(await navElement.evaluate(element => element.isConnected)).toBe(true);
+  await expect(nav.getByRole('button', { name: 'Profile', exact: true })).toBeHidden();
+  await expect(page.getByRole('button', { name: 'Preferences', exact: true })).toBeVisible();
+  await expect(nav.getByRole('button', { name: 'Saved', exact: true })).toHaveAttribute('aria-current', 'page');
+  expect((await page.locator('.sidebar').boundingBox()).width).toBe(230);
+  await page.setViewportSize({ width, height: 700 });
+  await atBottom();
+  await page.getByRole('button', { name: 'Account options', exact: true }).click();
+  await page.getByRole('button', { name: 'Switch to dark mode' }).click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByRole('button', { name: 'Account options', exact: true })).toBeFocused();
+  await page.screenshot({ path: `/tmp/jobswipe-bottom-nav-${width}.png`, fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: 'Account options', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+});
+
+test('mobile recruiter links and final application controls remain accessible', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 500 });
+  await setup(page, { role: 'Recruiter' });
+  const nav = page.getByRole('navigation', { name: 'Main navigation' });
+  await expect(nav.getByRole('button')).toHaveText(['Applicants', 'Profile']);
+  await nav.getByRole('button', { name: 'Profile', exact: true }).click();
+  await expect(page.getByLabel('Full name *', { exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Account options', exact: true }).click();
+  await page.getByRole('button', { name: 'Sign out', exact: true }).click();
+  await setup(page);
+  await page.request.post('/api/applications/start', { data: { jobId: '1' } });
+  await page.reload();
+  await nav.getByRole('button', { name: 'Applications', exact: true }).click();
+  await expect(page.getByLabel('Status')).toHaveValue('Started');
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight));
+  const lastButton = page.getByRole('button', { name: 'Delete Application', exact: true });
+  const control = await lastButton.boundingBox();
+  const bar = await nav.boundingBox();
+  expect(control.y).toBeGreaterThanOrEqual(0);
+  expect(control.y + control.height).toBeLessThanOrEqual(bar.y);
+  await expect(lastButton).toBeVisible();
+});
