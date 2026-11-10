@@ -30,9 +30,11 @@ Adzuna or Gemini key. If the optional ONNX installer fails, use
 ## Fill a Greenhouse application
 
 1. Open a standard hosted application, such as a
-   `https://job-boards.greenhouse.io/<board>/jobs/<id>` URL. You can find
-   one independently or follow a JobSwipe listing's **Original posting** link
-   if it leads to a supported Greenhouse page.
+   `https://job-boards.greenhouse.io/<board>/jobs/<id>` URL. In JobSwipe,
+   Discover shows **Listings from Greenhouse** when that provider is active.
+   Swipe right or click **Open application** to open the application in a new
+   tab and mark it **Started**. **Save** keeps it for later. You can also open
+   any supported Greenhouse listing independently.
 2. Open the extension, review whether to include the imported résumé and
    voluntary answers on this form, then click **Fill with JobSwipe**.
    Some employer pages upload a résumé as soon as it is attached.

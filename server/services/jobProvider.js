@@ -6,6 +6,12 @@ export function plainText(value) {
     .replace(/<style\b[^>]*>[\s\S]*?<\/style>/gi, '')
     .replace(/<[^>]*>/g, ' ').replace(/&nbsp;/g,' ').replace(/&amp;/g,'&').replace(/\s+/g,' ').trim();
 }
+export function extractJobSkills(text, searchableSkills) {
+  return searchableSkills.filter(skill => {
+    const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    return new RegExp(`(^|[^a-z0-9+#])${escaped}(?=$|[^a-z0-9+#])`, 'i').test(text);
+  });
+}
 export function normalizeJobs(rows, candidateSkills = []) {
   const seen = new Set();
   const searchableSkills = [...new Set([...skillCatalog, ...candidateSkills])];
@@ -19,10 +25,7 @@ export function normalizeJobs(rows, candidateSkills = []) {
     if (seen.has(id) || seen.has(postingUrl) || seen.has(fingerprint)) return [];
     seen.add(id); seen.add(postingUrl); seen.add(fingerprint);
     const text = `${title} ${description}`;
-    const jobSkills = searchableSkills.filter(skill => {
-      const escaped = skill.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-      return new RegExp(`(^|[^a-z0-9+#])${escaped}(?=$|[^a-z0-9+#])`, 'i').test(text);
-    });
+    const jobSkills = extractJobSkills(text, searchableSkills);
     return [{ id, title, company, description, postingUrl, applyUrl: postingUrl, source: 'Adzuna',
       descriptionIsSnippet: true, location: plainText(row.location?.display_name) || 'Not provided',
       mode: 'Unknown', type: row.contract_time === 'full_time' ? 'Full-time' : row.contract_time === 'part_time' ? 'Part-time' : row.contract_type === 'contract' ? 'Contract' : 'Unknown',
@@ -51,7 +54,7 @@ export function createJobProvider({ fetchImpl = fetch, appId = process.env.ADZUN
     }
     return normalizeJobs(rows, candidateSkills);
   }
-  return { async getJobs({ skills = '', refresh = false } = {}) {
+  return { source: 'Adzuna', async getJobs({ skills = '', refresh = false } = {}) {
     if (!appId || !appKey) throw new ApiError(503, 'Add ADZUNA_APP_ID and ADZUNA_APP_KEY to the server .env and restart.');
     const candidateSkills = [...new Set(String(skills).split(/[,;\n|]+/)
       .map(skill => skill.trim().slice(0, 80)).filter(Boolean))];

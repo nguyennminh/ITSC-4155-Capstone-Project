@@ -45,6 +45,7 @@ export default function App() {
 
   // Jobs and application tracking
   const [jobs, setJobs] = useState([]);
+  const [jobSource, setJobSource] = useState('');
   const [saved, setSaved] = useState([]);
   const [savedListings, setSavedListings] = useState([]);
   const [savedLoading, setSavedLoading] = useState(false);
@@ -111,6 +112,7 @@ export default function App() {
       const result = await getMatches();
       if (!isCurrent()) return;
       setJobs(result.jobs); setRecommendations(result.matches);
+      setJobSource(result.jobSource || result.jobs[0]?.source || '');
       setMatchesReady(true); setMatchNotice(result.message || "");
     } catch (err) {
       if (isCurrent()) setError(err.message || "Could not load matches. Please retry.");
@@ -320,6 +322,8 @@ export default function App() {
             jobs={jobs}
             profile={profile}
             saved={saved}
+            jobSource={jobSource}
+            started={applications.map(application => String(application.id))}
             onSave={saveJob}
             onApply={apply}
             onDetails={openDetails}
@@ -360,7 +364,9 @@ export default function App() {
 
         {page === "recruiter" && <Recruiter />}
 
-        <p className="demo-label"><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> ·
+        <p className="demo-label">
+          {jobSource === 'Greenhouse' && <>Listings from Greenhouse · </>}
+          {jobSource === 'Adzuna' && <><a href="https://www.adzuna.com/" target="_blank" rel="noopener noreferrer">Jobs by Adzuna</a> · </>}
           Confirmed profiles, saved jobs, and application tracking are saved
         </p>
       </div>
