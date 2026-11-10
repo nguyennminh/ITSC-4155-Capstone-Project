@@ -8,7 +8,10 @@ async function loadEncoder() {
   const { pipeline } = await import('@huggingface/transformers');
   return pipeline('feature-extraction', MODEL, { revision: REVISION, dtype: 'q8' });
 }
-export function createLocalMatcher({ load = loadEncoder, version = `${MODEL}@${REVISION}:q8`, maxEntries = 2000 } = {}) {
+export function createLocalMatcher({ load = loadEncoder, version = `${MODEL}@${REVISION}:q8`, maxEntries = 2000,
+  mode = process.env.MATCHING_MODE || (process.env.NODE_ENV === 'production' ? 'keyword' : 'minilm'),
+} = {}) {
+  if (!['keyword', 'minilm'].includes(mode)) throw new Error('MATCHING_MODE must be keyword or minilm.');
   let encoder;
   const cache = new Map();
   async function embed(text) {
@@ -23,7 +26,7 @@ export function createLocalMatcher({ load = loadEncoder, version = `${MODEL}@${R
   }
   return async function rank(profile, jobs) {
     const matches = rankJobs(profile, jobs);
-    if (!matches.length) return { matches, source: 'keyword', message: '' };
+    if (mode === 'keyword' || !matches.length) return { matches, source: 'keyword', message: '' };
     try {
       const text = ['skills', 'experience', 'projects', 'education', 'certifications', 'title']
         .map(field => qualificationText(profile[field])).join('\n').slice(0, 16000);

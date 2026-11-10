@@ -17,6 +17,8 @@ services:
         value: jobswipe
       - key: JOB_PROVIDER
         value: greenhouse
+      - key: MATCHING_MODE
+        value: keyword
       - key: GEMINI_API_KEY
         sync: false
       - key: GOOGLE_CLIENT_ID

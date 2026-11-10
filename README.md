@@ -27,6 +27,15 @@ The included `render.yaml` builds the Vite frontend and serves it with the Expre
 one Render web service. Persistent records are stored in MongoDB Atlas; the Render service's
 local filesystem is not used as the production database.
 
+Production defaults to `MATCHING_MODE=keyword`. This uses the existing skill-based
+ranking without importing or downloading MiniLM, so browsing does not start a local
+model on the Render instance. Greenhouse jobs, profile filters, match evidence, and
+optional Gemini explanations remain available. For semantic ranking on a server
+with sufficient resources, explicitly set `MATCHING_MODE=minilm`. Local development
+still defaults to MiniLM. A Blueprint-managed service receives the keyword setting;
+for an existing manually configured service, set it in Render's Environment page
+and redeploy. This is a resource mitigation, not proof of the earlier restart cause.
+
 1. Create a MongoDB Atlas cluster and a database user with access to the application
    database. Configure Atlas network access to allow connections from Render. For services
    without static outbound IPs, Atlas may need a broad IP allowlist; use a private network or
