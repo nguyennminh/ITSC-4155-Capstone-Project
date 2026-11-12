@@ -3,7 +3,7 @@ import React from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import { safeExternalUrl } from '../services/linkService.js';
 
-export default function Applications({ applications, updateStatus, deleteApplication }) {
+export default function Applications({ applications, updateStatus, deleteApplication, shareApplication }) {
   const handleDelete = async (jobId) => {
     const confirmed = window.confirm(
       'Are you sure you want to delete this application?'
@@ -58,15 +58,27 @@ export default function Applications({ applications, updateStatus, deleteApplica
               {[
                 'Started',
                 'Applied',
+                ...(application.status === 'Reviewing' ? ['Reviewing'] : []),
                 'Interviewing',
                 'Offered',
                 'Rejected',
                 'Withdrawn'
               ].map(status => (
-                <option key={status}>{status}</option>
+                <option key={status} disabled={status === 'Reviewing'}>{status}</option>
               ))}
             </select>
           </label>
+
+          {application.company && application.status !== 'Withdrawn' && (
+            <div>
+              <p>{application.shared
+                ? 'Shared with authorized recruiters for this company.'
+                : 'After you apply, sharing lets authorized recruiters for this company see your application, contact details, profile and current saved résumé.'}</p>
+              <button type="button" onClick={() => shareApplication(application.id, !application.shared, application.status === 'Started')}>
+                {application.shared ? 'Stop sharing' : application.status === 'Started' ? 'Mark applied & share' : 'Share with company'}
+              </button>
+            </div>
+          )}
 
           <button
             type="button"

@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 
 const password = 'a-long-test-password';
 
-async function register(page, role = 'Job seeker') {
+async function register(page, role = 'Job seeker', company = 'Example Company') {
   const email = `auth-${randomUUID()}@example.com`;
   await page.goto('/');
   await page.getByRole('button', { name: 'Create an account', exact: true }).click();
@@ -21,7 +21,7 @@ async function register(page, role = 'Job seeker') {
     ).toBeVisible();
 
     await page.getByLabel('Company name *', { exact: true })
-      .fill('Example Company');
+      .fill(company);
 
     await page.getByRole('button', {
       name: 'Save recruiter profile',
@@ -171,4 +171,20 @@ test('session restoration connection failures offer a working retry', async ({ p
   await page.unroute('**/api/auth/me');
   await page.getByRole('button', { name: 'Retry connection', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+});
+
+
+test('recruiter filters applicants by job opening', async ({ page }) => {
+  await page.route('**/api/recruiter/applications', route => route.fulfill({ json: {
+    company: 'Example Software',
+    applications: [
+      { id: '1', applicantId: '1', title: 'Software Engineer', status: 'Applied', applicant: { name: 'Sam Engineer' } },
+      { id: '2', applicantId: '2', title: 'Data Analyst', status: 'Applied', applicant: { name: 'Alex Analyst' } },
+    ],
+  } }));
+  await register(page, 'Recruiter', 'Example Software');
+  await expect(page.getByRole('heading', { name: 'Sam Engineer' })).toBeVisible();
+  await page.getByLabel('Job opening').selectOption('2');
+  await expect(page.getByRole('heading', { name: 'Alex Analyst' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sam Engineer' })).toHaveCount(0);
 });

@@ -15,7 +15,7 @@ export async function fixture(t, options = {}, filename = ':memory:') {
     return async (path, body, method = body === undefined ? 'GET' : 'POST') => {
       const response = await fetch(base + path, { method, headers: { Cookie: cookie, ...(body === undefined ? {} : {'Content-Type':'application/json'}) }, body: body === undefined ? undefined : JSON.stringify(body) });
       if (response.headers.get('set-cookie')) cookie = response.headers.get('set-cookie').split(';')[0];
-      return { status: response.status, data: await response.json() };
+      return { status: response.status, data: response.headers.get('content-type')?.includes('application/json') ? await response.json() : Buffer.from(await response.arrayBuffer()) };
     };
   } };
 }

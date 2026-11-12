@@ -37,15 +37,24 @@ export function openStore(filename = ':memory:') {
       original_name TEXT NOT NULL, content_type TEXT NOT NULL, data BLOB NOT NULL,
       saved_at TEXT NOT NULL
     );`);
+  if (!db.prepare("PRAGMA table_info(applications)").all().some(column => column.name === 'recruiter_shared')) {
+    db.exec('ALTER TABLE applications ADD COLUMN recruiter_shared INTEGER NOT NULL DEFAULT 0');
+  }
   const store = {
     close: () => db.close(),
     applications(id) {
       return db.prepare('SELECT * FROM applications WHERE user_id=? ORDER BY started_at DESC').all(id)
-        .map(row => ({ ...JSON.parse(row.job_json), id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at }));
+        .map(row => ({ ...JSON.parse(row.job_json), id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at, shared: row.recruiter_shared === 1 }));
     },
-    recruiterApplications(companyName) {
-      return db.prepare('SELECT applications.*, users.profile_json, users.email FROM applications JOIN users ON users.id=applications.user_id ORDER BY applications.started_at DESC').all()
-        .filter(row => JSON.parse(row.job_json).company?.trim().toLowerCase() === companyName.toLowerCase())
+    recruiterDemoCompanies(applicantIds) {
+      const names = db.prepare('SELECT user_id, job_json FROM applications WHERE recruiter_shared=1').all()
+        .filter(row => applicantIds.includes(String(row.user_id))).map(row => JSON.parse(row.job_json).company);
+      return [...new Map(names.filter(name => typeof name === 'string' && name.trim())
+        .map(name => [name.trim().toLowerCase(), name.trim()])).values()].sort((a, b) => a.localeCompare(b));
+    },
+    recruiterApplications(companyName, applicantIds) {
+      return db.prepare('SELECT applications.*, users.profile_json, users.email FROM applications JOIN users ON users.id=applications.user_id WHERE applications.recruiter_shared=1 ORDER BY applications.started_at DESC').all()
+        .filter(row => (!applicantIds || applicantIds.includes(String(row.user_id))) && JSON.parse(row.job_json).company?.trim().toLowerCase() === companyName.toLowerCase())
         .map(row => {
           const job = JSON.parse(row.job_json);
           const profile = JSON.parse(row.profile_json);
@@ -62,13 +71,13 @@ export function openStore(filename = ':memory:') {
       return match && { name: match.name, title: match.title, profileImage: match.profileImage, companyLogo: match.companyLogo, companyDescription: match.companyDescription, companyWebsite: match.companyWebsite };
     },
     recruiterResume(companyName, applicantId, jobId) {
-      const application = db.prepare('SELECT job_json FROM applications WHERE user_id=? AND job_id=?').get(applicantId, jobId);
+      const application = db.prepare('SELECT job_json FROM applications WHERE user_id=? AND job_id=? AND recruiter_shared=1').get(applicantId, jobId);
       if (!application || JSON.parse(application.job_json).company?.trim().toLowerCase() !== companyName?.toLowerCase()) return null;
       const row = db.prepare('SELECT original_name,content_type,data FROM resumes WHERE user_id=?').get(applicantId);
       return row && { name: row.original_name, contentType: row.content_type, buffer: row.data };
     },
     updateRecruiterApplication(companyName, applicantId, jobId, status) {
-      const row = db.prepare('SELECT applications.job_json FROM applications WHERE user_id=? AND job_id=?').get(applicantId, jobId);
+      const row = db.prepare('SELECT applications.job_json FROM applications WHERE user_id=? AND job_id=? AND recruiter_shared=1').get(applicantId, jobId);
       if (!row || JSON.parse(row.job_json).company?.trim().toLowerCase() !== companyName.toLowerCase()) return 0;
       return db.prepare('UPDATE applications SET status=?,updated_at=? WHERE user_id=? AND job_id=?')
         .run(status, new Date().toISOString(), applicantId, jobId).changes;
@@ -86,12 +95,17 @@ export function openStore(filename = ':memory:') {
     },
     startApplication(id, job) {
       const date = new Date().toISOString();
-      db.prepare('INSERT INTO applications VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,job_id) DO NOTHING')
+      db.prepare('INSERT INTO applications (user_id,job_id,job_json,status,started_at,updated_at) VALUES(?,?,?,?,?,?) ON CONFLICT(user_id,job_id) DO NOTHING')
         .run(id, String(job.id), JSON.stringify(job), 'Started', date, date);
     },
+    setApplicationSharing(id, jobId, shared, markApplied = false) {
+      const row = db.prepare('SELECT * FROM applications WHERE user_id=? AND job_id=?').get(id, jobId);
+      if (!row || (shared && ((markApplied ? row.status !== 'Started' : ['Started', 'Withdrawn'].includes(row.status)) || !JSON.parse(row.job_json).company?.trim()))) return 0;
+      return db.prepare('UPDATE applications SET recruiter_shared=?,status=?,updated_at=? WHERE user_id=? AND job_id=?').run(Number(shared), markApplied ? 'Applied' : row.status, new Date().toISOString(), id, jobId).changes;
+    },
     updateApplication(id, jobId, status) {
-      return db.prepare('UPDATE applications SET status=?,updated_at=? WHERE user_id=? AND job_id=?')
-        .run(status, new Date().toISOString(), id, jobId).changes;
+      return db.prepare('UPDATE applications SET status=?,updated_at=?,recruiter_shared=CASE WHEN ? THEN 0 ELSE recruiter_shared END WHERE user_id=? AND job_id=?')
+        .run(status, new Date().toISOString(), Number(['Started', 'Withdrawn'].includes(status)), id, jobId).changes;
     },
 
     deleteApplication(id, jobId) {
