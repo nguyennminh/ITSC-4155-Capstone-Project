@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Heart, X } from 'lucide-react';
+import { ArrowUpRight, Heart, RefreshCw, X } from 'lucide-react';
+import { defaultJobFilters, matchesJobFilters } from '../services/jobFilters.js';
 import { safeExternalUrl } from '../services/linkService.js';
 import { splitSkills } from '../services/skillService.js';
 import JobCard from '../components/JobCard.jsx';
@@ -25,6 +26,9 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   const animationTimer = useRef(null);
   const [swipeDirection, setSwipeDirection] = useState('');
   const [error, setError] = useState('');
+  const [filters, setFilters] = useState(defaultJobFilters);
+  const updateFilter = (key, value) => setFilters(previous => ({ ...previous, [key]: value }));
+  const activeFilters = Object.entries(filters).filter(([key, value]) => value !== '' && value !== 'Any');
 
   useEffect(() => {
     mounted.current = true;
@@ -36,9 +40,14 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
     };
   }, []);
 
-  const available = (matches || []).filter(match => !skipped.includes(String(match.jobId)) && !started.includes(String(match.jobId)) && !saved.some(id => String(id) === String(match.jobId)));
+  const jobsById = new Map(jobs.map(job => [String(job.id), job]));
+  const available = (matches || []).filter(match => {
+    const candidate = jobsById.get(String(match.jobId));
+    return candidate && matchesJobFilters(candidate, filters) && !skipped.includes(String(match.jobId))
+      && !started.includes(String(match.jobId)) && !saved.some(id => String(id) === String(match.jobId));
+  });
   const current = available[0];
-  const job = jobs.find(job => job.id === current?.jobId);
+  const job = jobsById.get(String(current?.jobId));
   const busy = Boolean(pendingAction || loading || swipeDirection);
   const resumeSkills = splitSkills(profile.skills);
   function advance(id) { setSkipped(ids => [...new Set([...ids, String(id)])]); }
@@ -114,11 +123,37 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
 
   return <section>
     <PageHeader title="Your matches" subtitle={loading ? 'Finding jobs picked for you…' : !confirmed ? 'Complete your profile to find your matches' : matchesReady ? `${available.length} ${available.length === 1 ? 'job' : 'jobs'} picked for you` : 'Find roles that fit your profile'}/>
+    <div className="discover-toolbar">
+      <button type="button" onClick={onRefreshJobs} disabled={!confirmed || busy || !onRefreshJobs} aria-label="Refresh job listings">
+        <RefreshCw size={17} aria-hidden="true"/> {loading ? 'Refreshing jobs…' : 'Refresh Jobs'}
+      </button>
+    </div>
+    <div className="card discover-filters" aria-label="Filter jobs">
+      <h2>Filter jobs</h2>
+      <div className="discover-filter-grid">
+        <label>Keyword<input value={filters.keyword} onChange={event => updateFilter('keyword', event.target.value)} placeholder="Job title or skill"/></label>
+        <label>Location<input value={filters.location} onChange={event => updateFilter('location', event.target.value)} placeholder="City or state"/></label>
+        <label>Company<input value={filters.company} onChange={event => updateFilter('company', event.target.value)} placeholder="Company name"/></label>
+        <label>Employment type<select value={filters.type} onChange={event => updateFilter('type', event.target.value)}>{['Any', 'Full-time', 'Part-time', 'Internship', 'Contract'].map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>Work arrangement<select value={filters.mode} onChange={event => updateFilter('mode', event.target.value)}>{['Any', 'Remote', 'Hybrid', 'On-site'].map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>Experience level<select value={filters.experience} onChange={event => updateFilter('experience', event.target.value)}>{['Any', 'Internship', 'Entry-level', 'Senior'].map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>Minimum annual salary ($)<input type="number" min="0" step="1000" value={filters.minSalary} onChange={event => updateFilter('minSalary', event.target.value)} placeholder="No minimum"/></label>
+        <label>Maximum annual salary ($)<input type="number" min="0" step="1000" value={filters.maxSalary} onChange={event => updateFilter('maxSalary', event.target.value)} placeholder="No maximum"/></label>
+      </div>
+      <p className="muted">Salary filters exclude listings without annual salary data. Experience levels are identified from explicit job titles when no level is provided.</p>
+      {activeFilters.length > 0 && <div className="discover-active-filters" aria-label="Active filters">
+        {activeFilters.map(([key, value]) => <button type="button" key={key} onClick={() => updateFilter(key, defaultJobFilters[key])} aria-label={`Remove ${key} filter`}>
+          {key.replace(/([A-Z])/g, ' $1')}: {key.toLowerCase().includes('salary') ? `$${Number(value).toLocaleString()}` : value} ×
+        </button>)}
+        <button type="button" onClick={() => setFilters({ ...defaultJobFilters })}>Clear all filters</button>
+      </div>}
+      <p role="status" aria-live="polite">{available.length} available {available.length === 1 ? 'job' : 'jobs'} match your filters.</p>
+    </div>
     <p>{jobSource && <>Listings from {jobSource}. </>}Swipe left to pass or right to open the employer application in a new tab. Save keeps a job for later.</p>
     
     {confirmed && !loading && matchesReady && !job && <div className="card">
-      <h2>{matches.length ? 'You have reviewed all matches' : 'No matching jobs'}</h2>
-      <p>Update your qualifications or broaden your preferences to find other opportunities.</p>
+      <h2>{available.length === 0 && activeFilters.length ? 'No jobs match your filters' : matches.length ? 'You have reviewed all matches' : 'No matching jobs'}</h2>
+      <p>{activeFilters.length ? 'Remove some filters or clear all filters to see more jobs.' : 'Update your qualifications or broaden your preferences to find other opportunities.'}</p>
       {matches.length > 0 && <button onClick={() => setSkipped([])}>Review skipped jobs</button>}
     </div>}
     <p id="swipe-help" className="muted">Hold and drag the job card left to pass or right to open the application. The card highlights your choice; release near the center to cancel. You can also use the buttons or focus the card and use left/right arrow keys. Skips are remembered in this browser tab for your account.</p>
