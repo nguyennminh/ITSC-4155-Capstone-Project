@@ -9,3 +9,7 @@ export const deleteApplication = jobId =>
     method: 'DELETE'
   });
 
+
+export const setApplicationSharing = (jobId, shared, markApplied = false) => api(`/api/applications/${encodeURIComponent(jobId)}/sharing`, {
+  method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ shared, markApplied }),
+});

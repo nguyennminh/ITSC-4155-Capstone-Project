@@ -2,10 +2,12 @@ import React, { useEffect, useMemo, useState } from 'react';
 import PageHeader from '../components/PageHeader.jsx';
 import { getRecruiterApplications, updateRecruiterApplication } from '../services/recruiterService.js';
 
-const statuses = ['Started', 'New', 'Reviewing', 'Interviewing', 'Offered', 'Rejected'];
+const statuses = ['Reviewing', 'Interviewing', 'Offered', 'Rejected'];
 
-export default function Recruiter({ profile }) {
+export default function Recruiter() {
   const [applications, setApplications] = useState([]);
+  const [company, setCompany] = useState('');
+  const [jobId, setJobId] = useState('');
   const [filter, setFilter] = useState('All');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
@@ -14,14 +16,18 @@ export default function Recruiter({ profile }) {
   useEffect(() => {
     let active = true;
     setLoading(true);
+    setError('');
     getRecruiterApplications()
-      .then(result => { if (active) setApplications(result.applications); })
+      .then(result => { if (active) { setCompany(result.company); setApplications(result.applications); } })
       .catch(err => { if (active) setError(err.message); })
       .finally(() => { if (active) setLoading(false); });
     return () => { active = false; };
-  }, [profile.companyName]);
+  }, []);
 
-  const visible = useMemo(() => applications.filter(application => filter === 'All' || application.status === filter), [applications, filter]);
+  const roles = useMemo(() => [...new Map(applications.map(application => [application.id, application])).values()]
+    .sort((a, b) => a.title.localeCompare(b.title)), [applications]);
+  const statusesInUse = [...new Set(applications.map(application => application.status))];
+  const visible = applications.filter(application => (!jobId || application.id === jobId) && (filter === 'All' || application.status === filter));
   async function changeStatus(application, status) {
     const key = `${application.applicantId}:${application.id}`;
     setBusy(key); setError('');
@@ -33,16 +39,23 @@ export default function Recruiter({ profile }) {
   }
 
   return <section className="recruiter-page">
-    <PageHeader title="Applicant dashboard" subtitle={profile.companyName ? `Applications for ${profile.companyName}` : 'Add your company name to view applications.'} />
-    {!profile.companyName && <p className="notice">Complete your recruiter profile before reviewing company applications.</p>}
+    <PageHeader title="Applicant dashboard" subtitle={company ? `Applications for ${company}` : 'Review applications shared with your company'} />
     {error && <p className="profile-error" role="alert">{error}</p>}
+    {company && <div className="card">
+      <label>Job opening
+        <select value={jobId} onChange={event => { setJobId(event.target.value); setFilter('All'); }}>
+          <option value="">All openings</option>
+          {roles.map(job => <option key={job.id} value={job.id}>{job.title}{job.location ? ` · ${job.location}` : ''} (#{job.id})</option>)}
+        </select>
+      </label>
+      <p>{visible.length} {visible.length === 1 ? 'application' : 'applications'}</p>
     <label className="status-filter">Filter applications
       <select value={filter} onChange={event => setFilter(event.target.value)}>
-        <option>All</option>{statuses.map(status => <option key={status}>{status}</option>)}
+        <option>All</option>{statusesInUse.map(status => <option key={status}>{status}</option>)}
       </select>
-    </label>
+    </label></div>}
     {loading && <p role="status">Loading applications…</p>}
-    {!loading && !visible.length && <p className="card">No applications match this filter.</p>}
+    {!loading && company && !visible.length && <p className="card">{applications.length ? "No applications match this filter." : "No applicants have shared an application with your company yet."}</p>}
     {!loading && visible.map(application => {
       const key = `${application.applicantId}:${application.id}`;
       return <article className="card applicant-card" key={key}>
@@ -51,9 +64,10 @@ export default function Recruiter({ profile }) {
         <p><strong>Skills:</strong> {application.applicant?.skills || 'Not provided'}</p>
         <p><strong>Education:</strong> {application.applicant?.education || 'Not provided'}</p>
         <p><strong>Experience:</strong> {application.applicant?.experience || 'Not provided'}</p>
-        {application.applicant?.resumeName && <p>Resume: <a href={`/api/recruiter/applications/${encodeURIComponent(application.applicantId)}/${encodeURIComponent(application.id)}/resume`} target="_blank" rel="noopener noreferrer">{application.applicant.resumeName}</a></p>}
+        {application.applicant?.resumeName && <p>Resume: <a href={`/api/recruiter/applications/${encodeURIComponent(application.applicantId)}/${encodeURIComponent(application.id)}/resume`} target="_blank" rel="noopener noreferrer">Download {application.applicant.resumeName}</a></p>}
         <label>Update status
           <select disabled={busy === key} value={application.status} onChange={event => changeStatus(application, event.target.value)}>
+            {!statuses.includes(application.status) && <option disabled>{application.status}</option>}
             {statuses.map(status => <option key={status}>{status}</option>)}
           </select>
         </label>

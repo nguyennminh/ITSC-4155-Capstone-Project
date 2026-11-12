@@ -45,10 +45,11 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
     close: () => client.close(),
     async applications(id) {
       const rows = await applications.find({ user_id: id }).sort({ started_at: -1 }).toArray();
-      return rows.map(row => ({ ...row.job_json, id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at }));
+      return rows.map(row => ({ ...row.job_json, id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at, shared: row.recruiter_shared === true }));
     },
     async recruiterApplications(companyName) {
       const rows = await applications.aggregate([
+        { $match: { recruiter_shared: true } },
         { $lookup: { from: 'users', localField: 'user_id', foreignField: '_id', as: 'applicantUser' } },
         { $unwind: '$applicantUser' },
         { $sort: { started_at: -1 } },
@@ -69,12 +70,12 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
         companyLogo: match.companyLogo, companyDescription: match.companyDescription, companyWebsite: match.companyWebsite };
     },
     async updateRecruiterApplication(companyName, applicantId, jobId, status) {
-      const row = await applications.findOne({ user_id: applicantId, job_id: jobId });
+      const row = await applications.findOne({ user_id: applicantId, job_id: jobId, recruiter_shared: true });
       if (!row || row.job_json?.company?.trim().toLowerCase() !== companyName.toLowerCase()) return 0;
-      return (await applications.updateOne({ user_id: applicantId, job_id: jobId }, { $set: { status, updated_at: new Date().toISOString() } })).matchedCount;
+      return (await applications.updateOne({ user_id: applicantId, job_id: jobId, recruiter_shared: true }, { $set: { status, updated_at: new Date().toISOString() } })).matchedCount;
     },
     async recruiterResume(companyName, applicantId, jobId) {
-      const application = await applications.findOne({ user_id: applicantId, job_id: jobId });
+      const application = await applications.findOne({ user_id: applicantId, job_id: jobId, recruiter_shared: true });
       if (!application || application.job_json?.company?.trim().toLowerCase() !== companyName?.toLowerCase()) return null;
       const row = await resumes.findOne({ user_id: applicantId });
       if (!row) return null;
@@ -103,10 +104,16 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
         { upsert: true },
       );
     },
+    async setApplicationSharing(id, jobId, shared, markApplied = false) {
+      return (await applications.updateOne(
+        { user_id: id, job_id: jobId, ...(shared ? { status: markApplied ? 'Started' : { $nin: ['Started', 'Withdrawn'] }, 'job_json.company': { $type: 'string', $ne: '' } } : {}) },
+        { $set: { recruiter_shared: shared, ...(markApplied ? { status: 'Applied', updated_at: new Date().toISOString() } : {}) } },
+      )).matchedCount;
+    },
     async updateApplication(id, jobId, status) {
       return (await applications.updateOne(
         { user_id: id, job_id: jobId },
-        { $set: { status, updated_at: new Date().toISOString() } },
+        { $set: { status, updated_at: new Date().toISOString(), ...(['Started', 'Withdrawn'].includes(status) ? { recruiter_shared: false } : {}) } },
       )).matchedCount;
     },
 

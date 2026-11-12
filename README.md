@@ -103,3 +103,25 @@ names to override them. Only standard hosted Greenhouse URLs are included so the
 Chrome extension can recognize the destination. Swipe right to open the employer
 form in a new tab and record **Started**; choose **Save** to bookmark it instead.
 For the legacy Adzuna provider, set `JOB_PROVIDER=adzuna` and configure its API keys.
+
+## Recruiter applicant review
+
+Recruiter accounts can review existing JobSwipe-tracked applications by job opening.
+The dashboard does not import applicants who applied only on an employer's site.
+
+1. For a demo, create a test recruiter with any email. In production, verify their
+   employer before granting access. Obtain their account ID from the
+   authenticated `/api/auth/me` response or your admin database.
+2. Set `RECRUITER_COMPANIES` to a JSON object mapping account IDs to exact company
+   names used in job listings, for example `{"recruiter-account-id":"Example Software"}`.
+   On Render, set it in **Environment** and redeploy. Recruiters cannot grant
+   themselves access by editing their profile.
+3. As the job seeker, select **Mark applied & share** after completing the
+   external application (or simulate it with demo data). If already marked
+   **Applied**, select **Share with company**. This shares application details, contact information,
+   relevant profile fields, and the current saved résumé. Applicants can stop sharing.
+4. As the recruiter, open **Applicants** and select a job opening. Status updates
+   appear on the applicant's Applications page after refresh.
+
+Existing applications stay private until shared. Sensitive demographic fields
+are not collected or displayed as part of applicant review.

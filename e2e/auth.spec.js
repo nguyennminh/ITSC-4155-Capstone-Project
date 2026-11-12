@@ -173,19 +173,18 @@ test('session restoration connection failures offer a working retry', async ({ p
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
 });
 
-test('recruiter reviews an application and the new status survives reload', async ({ page, request }) => {
-  const applicant = await request.post('/api/auth/register', {
-    data: { name: 'Dashboard Applicant', email: `applicant-${randomUUID()}@example.com`, password },
-  });
-  expect(applicant.status()).toBe(201);
-  const started = await request.post('/api/applications/start', { data: { jobId: '1' } });
-  expect(started.status()).toBe(200);
-  await register(page, 'Recruiter', 'Example Software');
 
-  await expect(page.getByRole('heading', { name: 'Dashboard Applicant' })).toBeVisible();
-  const updated = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes('/api/recruiter/applications/'));
-  await page.getByLabel('Update status').selectOption('Reviewing');
-  expect((await updated).status()).toBe(200);
-  await page.reload();
-  await expect(page.getByLabel('Update status')).toHaveValue('Reviewing');
+test('recruiter filters applicants by job opening', async ({ page }) => {
+  await page.route('**/api/recruiter/applications', route => route.fulfill({ json: {
+    company: 'Example Software',
+    applications: [
+      { id: '1', applicantId: '1', title: 'Software Engineer', status: 'Applied', applicant: { name: 'Sam Engineer' } },
+      { id: '2', applicantId: '2', title: 'Data Analyst', status: 'Applied', applicant: { name: 'Alex Analyst' } },
+    ],
+  } }));
+  await register(page, 'Recruiter', 'Example Software');
+  await expect(page.getByRole('heading', { name: 'Sam Engineer' })).toBeVisible();
+  await page.getByLabel('Job opening').selectOption('2');
+  await expect(page.getByRole('heading', { name: 'Alex Analyst' })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Sam Engineer' })).toHaveCount(0);
 });
