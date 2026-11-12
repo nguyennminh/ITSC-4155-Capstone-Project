@@ -43,6 +43,36 @@ export function openStore(filename = ':memory:') {
       return db.prepare('SELECT * FROM applications WHERE user_id=? ORDER BY started_at DESC').all(id)
         .map(row => ({ ...JSON.parse(row.job_json), id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at }));
     },
+    recruiterApplications(companyName) {
+      return db.prepare('SELECT applications.*, users.profile_json, users.email FROM applications JOIN users ON users.id=applications.user_id ORDER BY applications.started_at DESC').all()
+        .filter(row => JSON.parse(row.job_json).company?.trim().toLowerCase() === companyName.toLowerCase())
+        .map(row => {
+          const job = JSON.parse(row.job_json);
+          const profile = JSON.parse(row.profile_json);
+          return {
+            ...job, id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at,
+            applicantId: String(row.user_id), applicant: { name: profile.name, email: row.email, phone: profile.phone, skills: profile.skills, education: profile.education, experience: profile.experience, resumeName: profile.resumeName || '' },
+          };
+        });
+    },
+    recruiterForCompany(companyName) {
+      if (!companyName) return undefined;
+      const rows = db.prepare('SELECT profile_json FROM users WHERE role=?').all('Recruiter');
+      const match = rows.map(row => JSON.parse(row.profile_json)).find(profile => profile.companyName?.trim().toLowerCase() === companyName.trim().toLowerCase());
+      return match && { name: match.name, title: match.title, profileImage: match.profileImage, companyLogo: match.companyLogo, companyDescription: match.companyDescription, companyWebsite: match.companyWebsite };
+    },
+    recruiterResume(companyName, applicantId, jobId) {
+      const application = db.prepare('SELECT job_json FROM applications WHERE user_id=? AND job_id=?').get(applicantId, jobId);
+      if (!application || JSON.parse(application.job_json).company?.trim().toLowerCase() !== companyName?.toLowerCase()) return null;
+      const row = db.prepare('SELECT original_name,content_type,data FROM resumes WHERE user_id=?').get(applicantId);
+      return row && { name: row.original_name, contentType: row.content_type, buffer: row.data };
+    },
+    updateRecruiterApplication(companyName, applicantId, jobId, status) {
+      const row = db.prepare('SELECT applications.job_json FROM applications WHERE user_id=? AND job_id=?').get(applicantId, jobId);
+      if (!row || JSON.parse(row.job_json).company?.trim().toLowerCase() !== companyName.toLowerCase()) return 0;
+      return db.prepare('UPDATE applications SET status=?,updated_at=? WHERE user_id=? AND job_id=?')
+        .run(status, new Date().toISOString(), applicantId, jobId).changes;
+    },
     savedJobs(id) {
       return db.prepare('SELECT * FROM saved_jobs WHERE user_id=? ORDER BY saved_at DESC').all(id)
         .map(row => JSON.parse(row.job_json));

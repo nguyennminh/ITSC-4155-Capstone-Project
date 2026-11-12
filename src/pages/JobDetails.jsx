@@ -22,6 +22,13 @@ export default function JobDetails({ job, recommendation, onClose, onStart }) {
   return <div className="details-overlay" role="dialog" aria-modal="true" aria-label="Job details" onKeyDown={handleKeyDown}>
     <section ref={panel} className="card details-panel"><button onClick={onClose}>Back to jobs</button>
       <h1>{job.title}</h1><p>{job.company} · {job.location}</p>
+      {job.recruiter && <aside className="recruiter-info card">
+        {job.recruiter.profileImage && <img src={job.recruiter.profileImage} alt="" />}
+        <div><h2>About the recruiter</h2><p><strong>{job.recruiter.name}</strong>{job.recruiter.title && ` · ${job.recruiter.title}`}</p>
+          {job.recruiter.companyDescription && <p>{job.recruiter.companyDescription}</p>}
+          {job.recruiter.companyWebsite && <a href={job.recruiter.companyWebsite} target="_blank" rel="noopener noreferrer">Visit company website ↗</a>}
+        </div>
+      </aside>}
       <p>{job.salary || 'Salary not provided'} · {job.type || 'Employment type not provided'} · {job.mode || 'Arrangement not provided'}</p>
       <p>Source: {job.source}</p><h2>Description</h2>
       {job.descriptionIsSnippet && <p className="notice">The provider supplied a description excerpt. Open the original posting for the complete description.</p>}

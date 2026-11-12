@@ -26,6 +26,13 @@ const profileSchema = z.object({
   mode: z.enum(['Any', 'Remote', 'Hybrid', 'On-site']),
   type: z.enum(['Any', 'Full-time', 'Part-time', 'Internship', 'Contract']),
   resumeName: z.string().max(255).default(''),
+  profileImage: z.string().max(2_000_000).default(''),
+  companyName: z.string().trim().max(200).default(''),
+  companyLogo: z.string().max(2_000_000).default(''),
+  companyDescription: z.string().trim().max(12000).default(''),
+  companyWebsite: z.union([z.literal(''), z.string().url()]).default(''),
+  contactEmail: z.union([z.literal(''), z.string().email()]).default(''),
+  contactPhone: z.string().trim().max(40).default(''),
 });
 export function createApp({ store: providedStore, extract = extractText, explain = matchJobs, rank = createLocalMatcher(), jobProvider = configuredJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20 } = {}) {
   if (!providedStore) throw new Error('A connected store is required to create the JobSwipe API.');
@@ -59,7 +66,7 @@ export function createApp({ store: providedStore, extract = extractText, explain
   });
   app.use('/api', rateLimit({ windowMs: 60000, limit: apiLimit, standardHeaders: 'draft-8', legacyHeaders: false,
     message: { error: 'Too many requests. Wait a minute and retry.' } }));
-  app.use(express.json({ limit: '100kb' }));
+  app.use(express.json({ limit: '5mb' }));
   const authAttempts = rateLimit({ windowMs: 60000, limit: authLimit, message: { error: 'Too many sign-in attempts. Wait a minute.' } });
   app.use(['/api/auth/register', '/api/auth/login'], authAttempts);
   installGoogleAuth(app, { store, authAttempts, clientId: googleClientId, verify: verifyGoogle });
@@ -106,15 +113,43 @@ export function createApp({ store: providedStore, extract = extractText, explain
     skills: profile.skills,
     ...(jobProvider.source === 'Greenhouse' ? { title: profile.title } : {}),
   });
+  const withRecruiter = async jobs => Promise.all(jobs.map(async job => {
+    const recruiter = await store.recruiterForCompany?.(job.company);
+    return recruiter ? { ...job, recruiter } : job;
+  }));
   const findJob = async (profile, id) => jobProvider.getJob
     ? jobProvider.getJob(id)
     : (await jobProvider.getJobs(searchOptions(profile))).find(job => String(job.id) === id);
   app.get('/api/jobs', async (req, res) => {
     const profile = JSON.parse(req.user.profile_json);
     const skills = req.user.confirmed ? profile.skills : '';
-    res.json({ jobs: skills.trim() ? await jobProvider.getJobs({ ...searchOptions(profile), refresh: req.query.refresh === 'true' }) : [] });
+    res.json({ jobs: skills.trim() ? await withRecruiter(await jobProvider.getJobs({ ...searchOptions(profile), refresh: req.query.refresh === 'true' })) : [] });
   });
   app.get('/api/applications', async (req, res) => res.json({ applications: await store.applications(req.user.id) }));
+  app.get('/api/recruiter/applications', async (req, res) => {
+    if (req.user.role !== 'Recruiter') throw new ApiError(403, 'Only recruiter accounts can view company applications.');
+    const profile = JSON.parse(req.user.profile_json);
+    if (!profile.companyName?.trim()) return res.json({ applications: [] });
+    res.json({ applications: await store.recruiterApplications(profile.companyName.trim()) });
+  });
+  app.get('/api/recruiter/applications/:applicantId/:jobId/resume', async (req, res) => {
+    if (req.user.role !== 'Recruiter') throw new ApiError(403, 'Only recruiter accounts can view company resumes.');
+    const profile = JSON.parse(req.user.profile_json);
+    const resume = await store.recruiterResume(profile.companyName?.trim(), req.params.applicantId, req.params.jobId);
+    if (!resume) throw new ApiError(404, 'No resume is available for this application.');
+    res.set({ 'Content-Type': resume.contentType, 'Content-Disposition': `inline; filename*=UTF-8''${encodeURIComponent(resume.name)}`, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' });
+    res.send(resume.buffer);
+  });
+  app.patch('/api/recruiter/applications/:applicantId/:jobId', async (req, res) => {
+    if (req.user.role !== 'Recruiter') throw new ApiError(403, 'Only recruiter accounts can update company applications.');
+    const parsed = z.object({ status: z.enum(['Started', 'New', 'Reviewing', 'Interviewing', 'Offered', 'Rejected']) }).safeParse(req.body);
+    if (!parsed.success) throw new ApiError(400, 'Choose a valid application status.');
+    const profile = JSON.parse(req.user.profile_json);
+    if (!profile.companyName?.trim()) throw new ApiError(422, 'Add your company name before updating applications.');
+    const changed = await store.updateRecruiterApplication(profile.companyName.trim(), req.params.applicantId, req.params.jobId, parsed.data.status);
+    if (!changed) throw new ApiError(404, 'That application is not associated with your company.');
+    res.json({ applications: await store.recruiterApplications(profile.companyName.trim()) });
+  });
   app.post('/api/applications/start', async (req, res) => {
     const parsed = z.object({ jobId: z.string().min(1).max(200) }).safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Choose a valid job.');
@@ -225,7 +260,7 @@ export function createApp({ store: providedStore, extract = extractText, explain
     if (!req.user.confirmed) throw new ApiError(409, 'Confirm your profile before matching jobs.');
     const profile = JSON.parse(req.user.profile_json);
     if (!profile.skills.trim()) throw new ApiError(422, 'Add skills from your resume or profile before matching jobs.');
-    const jobs = await jobProvider.getJobs(searchOptions(profile));
+    const jobs = await withRecruiter(await jobProvider.getJobs(searchOptions(profile)));
     const result = await rank(profile, jobs, { userId: req.user.id });
     res.json({ jobs, ...result, jobSource: jobProvider.source, sampleJobs: false });
   });

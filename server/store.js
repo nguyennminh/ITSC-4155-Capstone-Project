@@ -47,6 +47,40 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
       const rows = await applications.find({ user_id: id }).sort({ started_at: -1 }).toArray();
       return rows.map(row => ({ ...row.job_json, id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at }));
     },
+    async recruiterApplications(companyName) {
+      const rows = await applications.aggregate([
+        { $lookup: { from: 'users', localField: 'user_id', foreignField: '_id', as: 'applicantUser' } },
+        { $unwind: '$applicantUser' },
+        { $sort: { started_at: -1 } },
+      ]).toArray();
+      return rows.filter(row => row.job_json?.company?.trim().toLowerCase() === companyName.toLowerCase()).map(row => {
+        const profile = JSON.parse(row.applicantUser.profile_json);
+        return { ...row.job_json, id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at,
+          applicantId: String(row.user_id), applicant: { name: profile.name, email: row.applicantUser.email, phone: profile.phone,
+            skills: profile.skills, education: profile.education, experience: profile.experience, resumeName: profile.resumeName || '' } };
+      });
+    },
+    async recruiterForCompany(companyName) {
+      if (!companyName) return undefined;
+      const usersForCompany = await users.find({ role: 'Recruiter' }).toArray();
+      const match = usersForCompany.map(user => JSON.parse(user.profile_json))
+        .find(profile => profile.companyName?.trim().toLowerCase() === companyName.trim().toLowerCase());
+      return match && { name: match.name, title: match.title, profileImage: match.profileImage,
+        companyLogo: match.companyLogo, companyDescription: match.companyDescription, companyWebsite: match.companyWebsite };
+    },
+    async updateRecruiterApplication(companyName, applicantId, jobId, status) {
+      const row = await applications.findOne({ user_id: applicantId, job_id: jobId });
+      if (!row || row.job_json?.company?.trim().toLowerCase() !== companyName.toLowerCase()) return 0;
+      return (await applications.updateOne({ user_id: applicantId, job_id: jobId }, { $set: { status, updated_at: new Date().toISOString() } })).matchedCount;
+    },
+    async recruiterResume(companyName, applicantId, jobId) {
+      const application = await applications.findOne({ user_id: applicantId, job_id: jobId });
+      if (!application || application.job_json?.company?.trim().toLowerCase() !== companyName?.toLowerCase()) return null;
+      const row = await resumes.findOne({ user_id: applicantId });
+      if (!row) return null;
+      const buffer = Buffer.isBuffer(row.data) ? row.data : Buffer.from(row.data.value(true));
+      return { name: row.original_name, contentType: row.content_type, buffer };
+    },
     async savedJobs(id) {
       const rows = await savedJobs.find({ user_id: id }).sort({ saved_at: -1 }).toArray();
       return rows.map(row => row.job_json);

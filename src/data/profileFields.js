@@ -8,5 +8,8 @@ function existingEntries(entries, text = '') {
 }
 export function normalizeProfile(profile = {}) {
   return { ...profile, phone: profile.phone || '', projects: profile.projects || '',
-    experienceEntries: existingEntries(profile.experienceEntries, profile.experience), projectEntries: existingEntries(profile.projectEntries, profile.projects) };
+    experienceEntries: existingEntries(profile.experienceEntries, profile.experience), projectEntries: existingEntries(profile.projectEntries, profile.projects),
+    profileImage: profile.profileImage || '', companyName: profile.companyName || '', companyLogo: profile.companyLogo || '',
+    companyDescription: profile.companyDescription || '', companyWebsite: profile.companyWebsite || '',
+    contactEmail: profile.contactEmail || '', contactPhone: profile.contactPhone || '' };
 }

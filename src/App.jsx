@@ -310,6 +310,7 @@ export default function App() {
             resume={resume}
             onReviewResume={() => navigate("resume")}
             onDeleteAccount={removeAccount}
+            role={role}
           />
         )}
 
@@ -362,7 +363,7 @@ export default function App() {
         )}
 
 
-        {page === "recruiter" && <Recruiter />}
+        {page === "recruiter" && <Recruiter profile={profile} />}
 
         <p className="demo-label">
           {jobSource === 'Greenhouse' && <>Listings from Greenhouse · </>}
