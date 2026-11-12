@@ -15,6 +15,23 @@ async function register(page, role = 'Job seeker') {
   await page.getByRole('button', { name: 'Create account', exact: true }).click();
   expect((await created).status()).toBe(201);
   await expect(page.getByRole('button', { name: 'Account options', exact: true })).toBeVisible();
+  if (role === 'Recruiter') {
+    await expect(
+      page.getByRole('heading', { name: 'Recruiter profile' })
+    ).toBeVisible();
+
+    await page.getByLabel('Company name *', { exact: true })
+      .fill('Example Company');
+
+    await page.getByRole('button', {
+      name: 'Save recruiter profile',
+      exact: true
+    }).click();
+
+    await expect(
+      page.getByRole('heading', { name: 'Applicant dashboard' })
+    ).toBeVisible();
+  }
   return email;
 }
 
