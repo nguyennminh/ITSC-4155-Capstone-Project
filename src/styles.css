@@ -182,6 +182,45 @@ small,
   padding: 1rem;
 }
 
+.recruiter-profile-fields {
+  border-top: 1px solid #d7e0e8;
+  margin-top: 1.5rem;
+  padding-top: 0.5rem;
+}
+
+.recruiter-preview {
+  margin-top: 1rem;
+}
+
+.recruiter-preview-brand {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.recruiter-preview-brand img,
+.recruiter-info img {
+  width: 64px;
+  height: 64px;
+  object-fit: cover;
+  border-radius: 50%;
+}
+
+.recruiter-info {
+  display: flex;
+  gap: 1rem;
+  align-items: flex-start;
+}
+
+.recruiter-info img {
+  flex-shrink: 0;
+}
+
+.job-recruiter-summary {
+  color: #526778;
+  font-size: 0.9rem;
+}
+
 /* Login */
 
 .login-layout {

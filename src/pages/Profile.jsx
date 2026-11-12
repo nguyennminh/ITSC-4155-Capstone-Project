@@ -11,12 +11,14 @@ export default function Profile({
   resume,
   onReviewResume,
   onDeleteAccount,
+  role,
 }) {
   const [form, setForm] = useState(() => normalizeProfile(profile));
   const [message, setMessage] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [preview, setPreview] = useState(false);
 
   function handleChange(event) {
     const { name, value } = event.target;
@@ -43,6 +45,10 @@ export default function Profile({
       setError("Please enter your name.");
       return;
     }
+    if (role === "Recruiter" && !form.companyName.trim()) {
+      setError("Please enter your company name.");
+      return;
+    }
 
     const updatedProfile = {
       ...form,
@@ -56,6 +62,11 @@ export default function Profile({
       education: form.education.trim(),
       experience: form.experience.trim(),
       certifications: form.certifications.trim(),
+      companyName: form.companyName.trim(),
+      companyDescription: form.companyDescription.trim(),
+      companyWebsite: form.companyWebsite.trim(),
+      contactEmail: form.contactEmail.trim(),
+      contactPhone: form.contactPhone.trim(),
     };
 
     setBusy(true);
@@ -66,6 +77,19 @@ export default function Profile({
       setMessage("Confirmed profile saved to your account.");
     } catch (err) { setError(err.message); }
     finally { setBusy(false); }
+  }
+
+  function readImage(event, field) {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    if (!file.type.startsWith("image/") || file.size > 2 * 1024 * 1024) {
+      setError("Choose an image file smaller than 2 MB.");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setForm(previous => ({ ...previous, [field]: String(reader.result) }));
+    reader.onerror = () => setError("The image could not be read. Please try again.");
+    reader.readAsDataURL(file);
   }
 
   function cancelChanges() {
@@ -83,7 +107,7 @@ export default function Profile({
 
   return (
     <main className="profile-page">
-      <PageHeader title="Preferences" subtitle="Update your information and job preferences."/>
+      <PageHeader title={role === "Recruiter" ? "Recruiter profile" : "Preferences"} subtitle={role === "Recruiter" ? "Represent yourself and your company professionally." : "Update your information and job preferences."}/>
       <p>Saved information stays with your account when you return.</p>
 
       <p>Resume: {profile.resumeName || "No resume parsed yet"}</p>
@@ -143,6 +167,44 @@ export default function Profile({
             />
           </label>
         </div>
+
+        {role === "Recruiter" && <section className="recruiter-profile-fields" aria-labelledby="company-profile-heading">
+          <h2 id="company-profile-heading">Company profile</h2>
+          <div className="profile-grid">
+            <label>Company name *
+              <input disabled={busy} name="companyName" value={form.companyName} maxLength={200} onChange={handleChange} required />
+            </label>
+            <label>Company website
+              <input disabled={busy} type="url" name="companyWebsite" value={form.companyWebsite} maxLength={500} onChange={handleChange} placeholder="https://example.com" />
+            </label>
+            <label>Contact email
+              <input disabled={busy} type="email" name="contactEmail" value={form.contactEmail} maxLength={254} onChange={handleChange} />
+            </label>
+            <label>Contact phone
+              <input disabled={busy} type="tel" name="contactPhone" value={form.contactPhone} maxLength={40} onChange={handleChange} />
+            </label>
+          </div>
+          <label>Company description
+            <textarea disabled={busy} name="companyDescription" value={form.companyDescription} maxLength={12000} rows={4} onChange={handleChange} placeholder="Tell job seekers what your company does and why they should join." />
+          </label>
+          <div className="profile-grid image-upload-grid">
+            <label>Profile picture
+              <input disabled={busy} type="file" accept="image/*" onChange={event => readImage(event, "profileImage")} />
+            </label>
+            <label>Company logo
+              <input disabled={busy} type="file" accept="image/*" onChange={event => readImage(event, "companyLogo")} />
+            </label>
+          </div>
+          <div className="recruiter-preview-actions">
+            <button type="button" className="secondary-button" onClick={() => setPreview(value => !value)}>{preview ? "Hide preview" : "Preview profile"}</button>
+          </div>
+          {preview && <article className="card recruiter-preview">
+            <div className="recruiter-preview-brand">{form.profileImage && <img src={form.profileImage} alt="" />}{form.companyLogo && <img src={form.companyLogo} alt={`${form.companyName || "Company"} logo`} />}</div>
+            <h2>{form.name || "Your name"}</h2><p>{form.title || "Professional title"}{form.companyName && ` · ${form.companyName}`}</p>
+            <p>{form.companyDescription || "Your company description will appear here."}</p>
+            {form.companyWebsite && <a href={form.companyWebsite} target="_blank" rel="noopener noreferrer">{form.companyWebsite}</a>}
+          </article>}
+        </section>}
 
         <h2>Qualifications</h2>
 

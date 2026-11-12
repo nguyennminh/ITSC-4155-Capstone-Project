@@ -14,6 +14,7 @@ export default function JobCard({ job, recommendation, onDetails, children }) {
       {Number.isFinite(score) && <span className="job-fit-pill"><Sparkles size={14} aria-hidden="true"/>{score}/100 fit estimate</span>}
     </div>
     <div className="job-card-heading"><h2>{job.title}</h2><p>{company}</p></div>
+    {job.recruiter && <p className="job-recruiter-summary">Posted by {job.recruiter.name}{job.recruiter.title && ` · ${job.recruiter.title}`}</p>}
     <div className="job-card-meta">
       <span><MapPin size={16} aria-hidden="true"/>{job.location || 'Location not provided'}</span>
       <span><House size={16} aria-hidden="true"/>{job.mode || 'Arrangement not provided'}</span>
