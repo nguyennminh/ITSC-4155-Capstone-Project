@@ -26,7 +26,7 @@ export default function Login({ onEnter, notice }) {
     setBusy(true); setError('');
     try {
       const result = await jsonPost(`/api/auth/${register ? 'register' : 'login'}`, { name: name.trim(), email: email.trim(), password, role });
-      onEnter(result.user);
+      onEnter(result.user, { registered: register });
     } catch (err) { setError(err.message); }
     finally { submitting.current = false; setBusy(false); }
   }

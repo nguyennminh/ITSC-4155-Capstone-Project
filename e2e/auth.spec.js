@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 
 const password = 'a-long-test-password';
 
-async function register(page, role = 'Job seeker') {
+async function register(page, role = 'Job seeker', company = 'Example Company') {
   const email = `auth-${randomUUID()}@example.com`;
   await page.goto('/');
   await page.getByRole('button', { name: 'Create an account', exact: true }).click();
@@ -21,7 +21,7 @@ async function register(page, role = 'Job seeker') {
     ).toBeVisible();
 
     await page.getByLabel('Company name *', { exact: true })
-      .fill('Example Company');
+      .fill(company);
 
     await page.getByRole('button', {
       name: 'Save recruiter profile',
@@ -171,4 +171,21 @@ test('session restoration connection failures offer a working retry', async ({ p
   await page.unroute('**/api/auth/me');
   await page.getByRole('button', { name: 'Retry connection', exact: true }).click();
   await expect(page.getByRole('heading', { name: 'Welcome back' })).toBeVisible();
+});
+
+test('recruiter reviews an application and the new status survives reload', async ({ page, request }) => {
+  const applicant = await request.post('/api/auth/register', {
+    data: { name: 'Dashboard Applicant', email: `applicant-${randomUUID()}@example.com`, password },
+  });
+  expect(applicant.status()).toBe(201);
+  const started = await request.post('/api/applications/start', { data: { jobId: '1' } });
+  expect(started.status()).toBe(200);
+  await register(page, 'Recruiter', 'Example Software');
+
+  await expect(page.getByRole('heading', { name: 'Dashboard Applicant' })).toBeVisible();
+  const updated = page.waitForResponse(response => response.request().method() === 'PATCH' && response.url().includes('/api/recruiter/applications/'));
+  await page.getByLabel('Update status').selectOption('Reviewing');
+  expect((await updated).status()).toBe(200);
+  await page.reload();
+  await expect(page.getByLabel('Update status')).toHaveValue('Reviewing');
 });
