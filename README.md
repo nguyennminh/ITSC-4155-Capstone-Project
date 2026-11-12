@@ -125,3 +125,10 @@ The dashboard does not import applicants who applied only on an employer's site.
 
 Existing applications stay private until shared. Sensitive demographic fields
 are not collected or displayed as part of applicant review.
+
+For the demo company picker, set `DEMO_RECRUITER_IDS` and `DEMO_APPLICANT_IDS`
+to the corresponding comma-separated JobSwipe test account IDs instead of
+mapping the demo recruiter to one company. Use synthetic applicants and résumés.
+Every company with an application shared by a listed demo applicant appears in
+the picker. The demo recruiter cannot read or update any other applicant's data.
+Leave both settings unset outside the demo.

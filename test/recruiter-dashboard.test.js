@@ -40,3 +40,33 @@ test('only authorized recruiters see opted-in applications and can update their 
   assert.deepEqual((await recruiter(path)).data.applications, []);
   assert.equal((await recruiter(detail, { status: 'Interviewing' }, 'PATCH')).status, 404);
 });
+
+test('demo recruiters can switch companies but cannot access real applicant records', async t => {
+  const jobs = ['Alpha', 'Beta', 'Real Only'].map(company => ({
+    id: company, company, title: 'Engineer', applyUrl: 'https://example.org/apply',
+  }));
+  const demoRecruiterIds = [], demoApplicantIds = [];
+  const { client } = await fixture(t, { demoRecruiterIds, demoApplicantIds, jobProvider: { getJobs: async () => jobs } });
+  const register = async (call, name, role) => {
+    const response = await call('/api/auth/register', { name, email: `${name}@example.org`, password, role });
+    assert.equal(response.status, 201);
+    return String(response.data.user.id);
+  };
+  const demo = client(), real = client(), recruiter = client();
+  demoApplicantIds.push(await register(demo, 'demo', 'Job seeker'));
+  const realId = await register(real, 'real', 'Job seeker');
+  demoRecruiterIds.push(await register(recruiter, 'recruiter', 'Recruiter'));
+  for (const [call, id] of [[demo, 'Alpha'], [demo, 'Beta'], [real, 'Alpha'], [real, 'Real Only']]) {
+    assert.equal((await call('/api/applications/start', { jobId: id })).status, 200);
+    assert.equal((await call(`/api/applications/${encodeURIComponent(id)}/sharing`, { shared: true, markApplied: true }, 'PATCH')).status, 200);
+  }
+  const path = '/api/recruiter/applications';
+  const first = await recruiter(path);
+  assert.deepEqual(first.data.companies, ['Alpha', 'Beta']);
+  assert.equal(first.data.applications.length, 1);
+  const second = await recruiter(`${path}?company=Beta`);
+  assert.equal(second.data.applications[0].id, 'Beta');
+  assert.equal((await recruiter(`${path}?company=Real%20Only`)).status, 404);
+  assert.equal((await recruiter(`${path}/${realId}/Alpha/resume?company=Alpha`)).status, 404);
+  assert.equal((await recruiter(`${path}/${realId}/Alpha?company=Alpha`, { status: 'Reviewing' }, 'PATCH')).status, 404);
+});

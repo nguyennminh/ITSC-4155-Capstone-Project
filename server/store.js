@@ -47,9 +47,14 @@ export async function connectMongoStore(uri = process.env.MONGODB_URI, databaseN
       const rows = await applications.find({ user_id: id }).sort({ started_at: -1 }).toArray();
       return rows.map(row => ({ ...row.job_json, id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at, shared: row.recruiter_shared === true }));
     },
-    async recruiterApplications(companyName) {
+    async recruiterDemoCompanies(applicantIds) {
+      const names = await applications.distinct('job_json.company', { recruiter_shared: true, user_id: { $in: applicantIds } });
+      return [...new Map(names.filter(name => typeof name === 'string' && name.trim())
+        .map(name => [name.trim().toLowerCase(), name.trim()])).values()].sort((a, b) => a.localeCompare(b));
+    },
+    async recruiterApplications(companyName, applicantIds) {
       const rows = await applications.aggregate([
-        { $match: { recruiter_shared: true } },
+        { $match: { recruiter_shared: true, ...(applicantIds ? { user_id: { $in: applicantIds } } : {}) } },
         { $lookup: { from: 'users', localField: 'user_id', foreignField: '_id', as: 'applicantUser' } },
         { $unwind: '$applicantUser' },
         { $sort: { started_at: -1 } },

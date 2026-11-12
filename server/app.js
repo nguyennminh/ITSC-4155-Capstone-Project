@@ -34,7 +34,7 @@ const profileSchema = z.object({
   contactEmail: z.union([z.literal(''), z.string().email()]).default(''),
   contactPhone: z.string().trim().max(40).default(''),
 });
-export function createApp({ store: providedStore, extract = extractText, explain = matchJobs, rank = createLocalMatcher(), jobProvider = configuredJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20, recruiterCompanies = JSON.parse(process.env.RECRUITER_COMPANIES || "{}") } = {}) {
+export function createApp({ store: providedStore, extract = extractText, explain = matchJobs, rank = createLocalMatcher(), jobProvider = configuredJobProvider(), googleClientId, verifyGoogle, suggestResume = getResumeSuggestions, apiLimit = 120, authLimit = 20, recruiterCompanies = JSON.parse(process.env.RECRUITER_COMPANIES || "{}"), demoRecruiterIds = (process.env.DEMO_RECRUITER_IDS || "").split(",").map(id => id.trim()).filter(Boolean), demoApplicantIds = (process.env.DEMO_APPLICANT_IDS || "").split(",").map(id => id.trim()).filter(Boolean) } = {}) {
   if (!recruiterCompanies || typeof recruiterCompanies !== 'object' || Array.isArray(recruiterCompanies)) throw new Error('RECRUITER_COMPANIES must be a JSON object.');
   if (!providedStore) throw new Error('A connected store is required to create the JobSwipe API.');
   const store = new Proxy(providedStore, {
@@ -127,30 +127,44 @@ export function createApp({ store: providedStore, extract = extractText, explain
     res.json({ jobs: skills.trim() ? await withRecruiter(await jobProvider.getJobs({ ...searchOptions(profile), refresh: req.query.refresh === 'true' })) : [] });
   });
   app.get('/api/applications', async (req, res) => res.json({ applications: await store.applications(req.user.id) }));
-  function recruiterCompany(req) {
+  function recruiterAccess(req) {
     if (req.user.role !== 'Recruiter') throw new ApiError(403, 'Only recruiter accounts can review applications.');
-    const company = Object.hasOwn(recruiterCompanies, String(req.user.id)) && recruiterCompanies[String(req.user.id)];
+    const id = String(req.user.id);
+    if (demoRecruiterIds.includes(id)) return { demo: true, applicantIds: demoApplicantIds };
+    const company = Object.hasOwn(recruiterCompanies, id) && recruiterCompanies[id];
     if (typeof company !== 'string' || !company.trim()) throw new ApiError(403, 'Ask an administrator to grant this account access to your company.');
-    return company.trim();
+    return { company: company.trim() };
+  }
+  async function recruiterSelection(req) {
+    const access = recruiterAccess(req);
+    if (!access.demo) return { ...access, companies: [access.company] };
+    if (req.params.applicantId && !access.applicantIds.includes(req.params.applicantId)) {
+      throw new ApiError(404, 'Application not found.');
+    }
+    const companies = await store.recruiterDemoCompanies(access.applicantIds);
+    const requested = req.query.company;
+    const company = requested === undefined ? companies[0] : companies.find(name => name === requested);
+    if (!company && requested !== undefined) throw new ApiError(404, 'Company not found in the demo.');
+    return { ...access, company, companies };
   }
   app.get('/api/recruiter/applications', async (req, res) => {
-    const company = recruiterCompany(req);
-    res.json({ company, applications: await store.recruiterApplications(company) });
+    const { company, companies, applicantIds } = await recruiterSelection(req);
+    res.json({ company: company || '', companies, applications: company ? await store.recruiterApplications(company, applicantIds) : [] });
   });
   app.get('/api/recruiter/applications/:applicantId/:jobId/resume', async (req, res) => {
-    const company = recruiterCompany(req);
+    const { company, applicantIds } = await recruiterSelection(req);
     const resume = await store.recruiterResume(company, req.params.applicantId, req.params.jobId);
     if (!resume) throw new ApiError(404, 'No resume is available for this application.');
     res.set({ 'Content-Type': resume.contentType, 'Content-Disposition': `attachment; filename*=UTF-8''${encodeURIComponent(resume.name)}`, 'X-Content-Type-Options': 'nosniff', 'Cache-Control': 'no-store' });
     res.send(resume.buffer);
   });
   app.patch('/api/recruiter/applications/:applicantId/:jobId', async (req, res) => {
-    const company = recruiterCompany(req);
+    const { company, applicantIds } = await recruiterSelection(req);
     const parsed = z.object({ status: z.enum(['Reviewing', 'Interviewing', 'Offered', 'Rejected']) }).safeParse(req.body);
     if (!parsed.success) throw new ApiError(400, 'Choose a valid application status.');
     const changed = await store.updateRecruiterApplication(company, req.params.applicantId, req.params.jobId, parsed.data.status);
     if (!changed) throw new ApiError(404, 'That application is not shared with your company.');
-    res.json({ company, applications: await store.recruiterApplications(company) });
+    res.json({ company, applications: await store.recruiterApplications(company, applicantIds) });
   });
   app.patch('/api/applications/:jobId/sharing', async (req, res) => {
     const parsed = z.object({ shared: z.boolean(), markApplied: z.boolean().default(false) }).safeParse(req.body);

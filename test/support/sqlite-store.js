@@ -46,9 +46,15 @@ export function openStore(filename = ':memory:') {
       return db.prepare('SELECT * FROM applications WHERE user_id=? ORDER BY started_at DESC').all(id)
         .map(row => ({ ...JSON.parse(row.job_json), id: row.job_id, status: row.status, startedAt: row.started_at, updatedAt: row.updated_at, shared: row.recruiter_shared === 1 }));
     },
-    recruiterApplications(companyName) {
+    recruiterDemoCompanies(applicantIds) {
+      const names = db.prepare('SELECT user_id, job_json FROM applications WHERE recruiter_shared=1').all()
+        .filter(row => applicantIds.includes(String(row.user_id))).map(row => JSON.parse(row.job_json).company);
+      return [...new Map(names.filter(name => typeof name === 'string' && name.trim())
+        .map(name => [name.trim().toLowerCase(), name.trim()])).values()].sort((a, b) => a.localeCompare(b));
+    },
+    recruiterApplications(companyName, applicantIds) {
       return db.prepare('SELECT applications.*, users.profile_json, users.email FROM applications JOIN users ON users.id=applications.user_id WHERE applications.recruiter_shared=1 ORDER BY applications.started_at DESC').all()
-        .filter(row => JSON.parse(row.job_json).company?.trim().toLowerCase() === companyName.toLowerCase())
+        .filter(row => (!applicantIds || applicantIds.includes(String(row.user_id))) && JSON.parse(row.job_json).company?.trim().toLowerCase() === companyName.toLowerCase())
         .map(row => {
           const job = JSON.parse(row.job_json);
           const profile = JSON.parse(row.profile_json);
