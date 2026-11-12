@@ -6,6 +6,7 @@ import {
   getApplications,
   startApplication,
   changeApplicationStatus,
+  setApplicationSharing,
   deleteApplication as deleteApplicationRequest
 } from './services/applicationService.js';
 
@@ -227,6 +228,16 @@ export default function App() {
   }
 
 
+  async function shareApplication(id, shared, markApplied) {
+    const version = accountVersion.current;
+    try {
+      const result = await setApplicationSharing(id, shared, markApplied);
+      if (version === accountVersion.current) setApplications(result.applications);
+    } catch (err) {
+      if (version === accountVersion.current) setMessage(err.message);
+    }
+  }
+
   async function handleDeleteApplication(jobId) {
     const version = accountVersion.current;
     const result = await deleteApplicationRequest(jobId);
@@ -360,12 +371,13 @@ export default function App() {
           <Applications
             applications={applications}
             updateStatus={updateApplicationStatus}
+            shareApplication={shareApplication}
             deleteApplication={handleDeleteApplication}
           />
         )}
 
 
-        {page === "recruiter" && <Recruiter profile={profile} />}
+        {page === "recruiter" && <Recruiter />}
 
         <p className="demo-label">
           {jobSource === 'Greenhouse' && <>Listings from Greenhouse · </>}
