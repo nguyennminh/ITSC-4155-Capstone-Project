@@ -754,3 +754,131 @@ textarea { line-height: 1.6; }
   background: #34505c;
   border-color: var(--accent);
 }
+
+
+/* Compact Discover Jobs filters */
+
+.discover-filters {
+  padding: 1rem 1.25rem;
+  margin: 0.5rem 0 0.75rem;
+}
+
+.discover-filter-heading {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  margin-bottom: 0.65rem;
+}
+
+.discover-filter-heading h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+
+.discover-filter-count {
+  font-size: 0.875rem;
+}
+
+.discover-filter-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.7rem 0.85rem;
+  align-items: end;
+}
+
+.discover-filter-grid label {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin: 0;
+  min-width: 0;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+.discover-filter-grid input,
+.discover-filter-grid select {
+  width: 100%;
+  height: 44px;
+  min-height: 44px;
+  margin: 0;
+  padding: 0.5rem 0.7rem;
+  box-sizing: border-box;
+  border-radius: 9px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--ink);
+}
+
+.discover-filter-controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.7rem;
+}
+
+.discover-filter-controls button {
+  min-height: 40px;
+  padding: 0.4rem 0.8rem;
+}
+
+.discover-filter-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.discover-filter-clear {
+  background: transparent;
+}
+
+.discover-filter-advanced {
+  margin-top: 0.8rem;
+  padding-top: 0.8rem;
+  border-top: 1px solid var(--border);
+}
+
+.discover-filter-note {
+  font-size: 0.8rem;
+  margin: 0.65rem 0 0;
+}
+
+.discover-active-filters {
+  margin: 0.65rem 0 0;
+  gap: 0.4rem;
+}
+
+.discover-active-filters button {
+  min-height: 34px;
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+/* Dark mode */
+
+[data-theme="dark"] .discover-filter-grid input,
+[data-theme="dark"] .discover-filter-grid select {
+  background: #182833;
+  color: var(--ink);
+  border-color: #4a626f;
+}
+
+[data-theme="dark"] .discover-filter-clear {
+  background: transparent;
+  color: var(--ink);
+}
+
+/* Mobile layout */
+
+@media (max-width: 600px) {
+  .discover-filter-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .discover-filters {
+    padding: 0.85rem;
+  }
+}
