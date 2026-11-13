@@ -284,7 +284,8 @@ export function createApp({ store: providedStore, extract = extractText, explain
     if (!req.user.confirmed) throw new ApiError(409, 'Confirm your profile before matching jobs.');
     const profile = JSON.parse(req.user.profile_json);
     if (!profile.skills.trim()) throw new ApiError(422, 'Add skills from your resume or profile before matching jobs.');
-    const jobs = await withRecruiter(await jobProvider.getJobs(searchOptions(profile)));
+    const earlyCareer = jobProvider.source === 'Greenhouse' && req.body?.earlyCareer === true;
+    const jobs = await withRecruiter(await jobProvider.getJobs({ ...searchOptions(profile), ...(earlyCareer ? { earlyCareer } : {}) }));
     const result = await rank(profile, jobs, { userId: req.user.id });
     res.json({ jobs, ...result, jobSource: jobProvider.source, sampleJobs: false });
   });
@@ -293,8 +294,7 @@ export function createApp({ store: providedStore, extract = extractText, explain
     const request = z.object({ consent: z.literal(true), jobId: z.string().min(1).max(200) }).safeParse(req.body);
     if (!request.success) throw new ApiError(400, 'Select a job and consent separately to Gemini processing for its explanation.');
     const profile = JSON.parse(req.user.profile_json);
-    const jobs = await jobProvider.getJobs(searchOptions(profile));
-    const job = jobs.find(job => String(job.id) === request.data.jobId);
+    const job = await findJob(profile, request.data.jobId);
     if (!job) throw new ApiError(404, 'Job is no longer available. Refresh the listings.');
     try {
       const [explanation] = await explain(profile, [job]);

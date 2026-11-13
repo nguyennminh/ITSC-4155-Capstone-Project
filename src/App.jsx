@@ -46,6 +46,8 @@ export default function App() {
 
   // Jobs and application tracking
   const [jobs, setJobs] = useState([]);
+  const earlyCareer = useRef(false);
+  const [preferEarlyCareer, setPreferEarlyCareer] = useState(false);
   const [jobSource, setJobSource] = useState('');
   const [saved, setSaved] = useState([]);
   const [savedListings, setSavedListings] = useState([]);
@@ -110,7 +112,7 @@ export default function App() {
         await getJobs({ refresh: true });
         if (!isCurrent()) return;
       }
-      const result = await getMatches();
+      const result = await getMatches(undefined, undefined, earlyCareer.current);
       if (!isCurrent()) return;
       setJobs(result.jobs); setRecommendations(result.matches);
       setJobSource(result.jobSource || result.jobs[0]?.source || '');
@@ -126,7 +128,15 @@ export default function App() {
     return loadMatches({ refresh: true });
   }
 
+  function changeEarlyCareer(enabled) {
+    if (matchingPending.current) return;
+    earlyCareer.current = enabled;
+    setPreferEarlyCareer(enabled);
+    void loadMatches();
+  }
+
   function enter(user, { registered = false } = {}) {
+    earlyCareer.current = false; setPreferEarlyCareer(false);
     accountVersion.current++; setAccountId(user.id);
     const version = accountVersion.current;
     getApplications().then(result => { if (version === accountVersion.current) setApplications(result.applications); })
@@ -348,6 +358,8 @@ export default function App() {
             matchesReady={matchesReady}
             onRetry={() => loadMatches()}
             onRefreshJobs={refreshJobs}
+            preferEarlyCareer={preferEarlyCareer}
+            onEarlyCareerChange={changeEarlyCareer}
           />
         )}
 

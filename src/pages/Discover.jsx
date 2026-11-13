@@ -10,7 +10,7 @@ import useSwipe from '../hooks/useSwipe.js';
 
 const SWIPE_ANIMATION_MS = 280;
 
-export default function Discover({ jobs, profile, confirmed, saved, started, jobSource, onSave, onApply, onReview, onDetails, recommendations: matches, loading, matchingError, notice, matchesReady, onRetry, onRefreshJobs, accountId }) {
+export default function Discover({ jobs, profile, confirmed, saved, started, jobSource, onSave, onApply, onReview, onDetails, recommendations: matches, loading, matchingError, notice, matchesReady, onRetry, onRefreshJobs, preferEarlyCareer, onEarlyCareerChange, accountId }) {
   const storageKey = `jobswipe-skips:${accountId}`;
   const [skipped, setSkipped] = useState(() => {
     try { const value = JSON.parse(sessionStorage.getItem(storageKey) || '[]'); return Array.isArray(value) ? value.filter(id => typeof id === 'string') : []; }
@@ -155,6 +155,11 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
         <RefreshCw size={17} aria-hidden="true"/> {loading ? 'Refreshing jobs…' : 'Refresh Jobs'}
       </button>
     </div>
+    {jobSource === 'Greenhouse' && <label>
+      <input type="checkbox" checked={preferEarlyCareer} disabled={!confirmed || busy}
+        onChange={event => onEarlyCareerChange(event.target.checked)} />
+      Prioritize early-career jobs
+    </label>}
     <div className="card discover-filters" aria-label="Filter jobs">
       <h2>Filter jobs</h2>
       <div className="discover-filter-grid">
