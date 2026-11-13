@@ -11,6 +11,15 @@ export function annualSalaryRange(value) {
   return { min: Math.min(...amounts), max: amounts.length === 1 && /\+/.test(text) ? Infinity : Math.max(...amounts) };
 }
 
+export function titleExperience(title = '') {
+  if (/\b(?:intern|internship)\b/i.test(title)) return 'Internship';
+  if (/\b(?:senior|sr\.?|staff|principal|lead|director)\b/i.test(title)) return 'Senior';
+  if (/\b(?:junior|jr\.?|entry[ -]level|new[ -]grad(?:uate)?|early[ -]career|university graduate|graduate)\b/i.test(title)
+    || /\b(?:engineer|analyst|developer|scientist|designer) I\b(?!\s*\/)/i.test(title)) return 'Entry-level';
+  if (/\b(?:mid[ -]level|midlevel|intermediate)\b/i.test(title)) return 'Mid-level';
+  return 'Unknown';
+}
+
 export function jobExperience(job) {
   const explicit = String(job.experienceLevel || '').trim();
   if (explicit) {
@@ -20,12 +29,7 @@ export function jobExperience(job) {
     if (/senior|staff|principal|lead/i.test(explicit)) return 'Senior';
     return 'Unknown';
   }
-  const title = String(job.title || '');
-  if (/\b(?:intern|internship)\b/i.test(title)) return 'Internship';
-  if (/\b(?:junior|jr\.?|entry[ -]level|graduate)\b/i.test(title)) return 'Entry-level';
-  if (/\b(?:senior|sr\.?|staff|principal|lead)\b/i.test(title)) return 'Senior';
-  if (/\b(?:mid[ -]level|midlevel|intermediate)\b/i.test(title)) return 'Mid-level';
-  return 'Unknown';
+  return titleExperience(String(job.title || ''));
 }
 
 export function matchesJobFilters(job, filters) {

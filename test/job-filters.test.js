@@ -31,3 +31,12 @@ test('open-ended pay can satisfy a higher minimum and reversed bounds never matc
   assert.equal(matchesJobFilters({ salary: '$90,000+' }, { ...defaultJobFilters, minSalary: '100000' }), true);
   assert.equal(matchesJobFilters({ salary: '$80,000–$130,000' }, { ...defaultJobFilters, minSalary: '120000', maxSalary: '100000' }), false);
 });
+
+test('entry-level title recognition separates level I, new grads, and internships', () => {
+  for (const title of ['Software Engineer I', 'Data Analyst I', 'Software Engineer, New Grad', 'Analyst, Early Career']) {
+    assert.equal(jobExperience({ title }), 'Entry-level', title);
+  }
+  assert.equal(jobExperience({ title: 'Software Engineer II' }), 'Unknown');
+  assert.equal(jobExperience({ title: 'IT Engineer Intern (Early Careers)' }), 'Internship');
+  assert.equal(jobExperience({ title: 'Senior Software Engineer I' }), 'Senior');
+});

@@ -44,3 +44,28 @@ test('matching response identifies Greenhouse and opening a supported applicatio
   assert.equal(started.data.url, data.jobs[0].applyUrl);
   assert.equal(started.data.applications[0].status, 'Started');
 });
+
+test('early-career mode promotes relevant entry-level jobs before the Greenhouse shortlist cap', async t => {
+  const early = row('example', 100, { title: 'Software Engineer I', content: 'Work with SQL.' });
+  const intern = row('example', 101, { title: 'Software Engineer Intern', content: 'Build with React and SQL.' });
+  const jobProvider = createGreenhouseProvider({ boards: 'example', fetchImpl: async () => Response.json({ jobs: [
+    ...Array.from({ length: 41 }, (_, i) => row('example', i + 1, { title: 'Senior Software Engineer', content: 'Build with React and SQL.' })),
+    early, intern, row('example', 102, { title: 'Junior Baker', content: 'Bake bread.' }),
+  ] }) });
+  const { client } = await fixture(t, {
+    jobProvider, rank: async (p, jobs) => ({ matches: rankJobs(p, jobs) }),
+    explain: async (_profile, jobs) => jobs.map(job => ({ jobId: job.id })),
+  });
+  const call = client();
+  assert.equal((await register(call)).status, 201);
+  assert.equal((await call('/api/profile/confirm', { confirmed: true, profile })).status, 200);
+  const standard = await call('/api/jobs/match', {});
+  assert.ok(!standard.data.jobs.some(job => job.title === early.title));
+  const preferred = await call('/api/jobs/match', { earlyCareer: true });
+  assert.equal(preferred.status, 200);
+  assert.equal(preferred.data.jobs.length, 40);
+  assert.equal(preferred.data.jobs[0].title, early.title);
+  assert.ok(!preferred.data.jobs.some(job => job.title === 'Junior Baker'));
+  const explanation = await call('/api/jobs/explain', { consent: true, jobId: preferred.data.jobs[0].id });
+  assert.equal(explanation.status, 200);
+});

@@ -97,7 +97,10 @@ a replica set, as provided by Atlas. See [authentication setup and verification]
 See [installing and using JobSwipe Autofill](docs/local-application-review.md)
 to fill supported Greenhouse applications from the regular JobSwipe app.
 
-Discover reads hosted listings from Discord, Cloudflare, Figma, and Robinhood by default.
+Discover reads hosted listings from Discord, Cloudflare, Figma, Robinhood, Affirm, and Scale AI by default.
+In Discover, select **Prioritize early-career jobs** to give relevant new-grad,
+junior, and level-I roles first pick of the 40 Greenhouse candidate slots.
+Other jobs can fill unused slots, and internships remain a separate filter.
 Set `GREENHOUSE_BOARDS` to a comma-separated list of up to eight Greenhouse board
 names to override them. Only standard hosted Greenhouse URLs are included so the
 Chrome extension can recognize the destination. Swipe right to open the employer

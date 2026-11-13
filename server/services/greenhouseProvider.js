@@ -2,9 +2,10 @@ import { ApiError } from './aiMatcher.js';
 import { createJobProvider, extractJobSkills, plainText } from './jobProvider.js';
 import { canonicalSkill } from './matching.js';
 import { skillCatalog } from '../../src/data/skillCatalog.js';
+import { titleExperience } from '../../src/services/jobFilters.js';
 import { pageKind } from '../../extension/settings.js';
 
-export const defaultBoards = 'discord,cloudflare,figma,robinhood';
+export const defaultBoards = 'discord,cloudflare,figma,robinhood,affirm,scaleai';
 const cacheDuration = 10 * 60 * 1000;
 const entities = { lt: '<', gt: '>', quot: '"', apos: "'", amp: '&', nbsp: ' ' };
 
@@ -78,7 +79,7 @@ export function createGreenhouseProvider({ boards = process.env.GREENHOUSE_BOARD
   return {
     source: 'Greenhouse',
     async getJob(id) { return (await listings()).find(job => job.id === id); },
-    async getJobs({ skills = '', title = '', refresh = false } = {}) {
+    async getJobs({ skills = '', title = '', refresh = false, earlyCareer = false } = {}) {
       const terms = [...new Set(skills.split(/[,;\n|]+/).map(skill => skill.trim().slice(0, 80)).filter(Boolean))].slice(0, 80);
       const wanted = new Set(terms.map(canonicalSkill));
       const extra = terms.filter(skill => !catalog.has(canonicalSkill(skill)));
@@ -91,24 +92,33 @@ export function createGreenhouseProvider({ boards = process.env.GREENHOUSE_BOARD
         const tags = [...job.skills, ...extractJobSkills(`${job.title}\n${job.description}`, extra)];
         const overlap = new Set(tags.map(canonicalSkill).filter(skill => wanted.has(skill))).size;
         const role = preferred && job.title.toLowerCase().includes(preferred);
-        if (overlap || role) candidates.push({ job: { ...job, skills: tags }, priority: overlap + (role ? 2 : 0) });
-      }
-      candidates.sort((a, b) => b.priority - a.priority || (Date.parse(b.job.created) || 0) - (Date.parse(a.job.created) || 0)
-        || a.job.id.localeCompare(b.job.id));
-      const groups = new Map();
-      for (const { job } of candidates) {
-        const company = job.company.toLowerCase();
-        if (!groups.has(company)) groups.set(company, []);
-        groups.get(company).push(job);
-      }
-      const jobs = [];
-      for (let index = 0; jobs.length < 40; index++) {
-        const before = jobs.length;
-        for (const group of groups.values()) {
-          if (group[index]) jobs.push(group[index]);
-          if (jobs.length === 40) break;
+        if (overlap || role) {
+          const level = titleExperience(job.title);
+          const tier = !earlyCareer ? 0 : level === 'Entry-level' && job.type !== 'Internship' ? 0
+            : level === 'Senior' || level === 'Internship' || job.type === 'Internship' ? 2 : 1;
+          candidates.push({ job: { ...job, skills: tags }, tier, priority: overlap + (role ? 2 : 0) });
         }
-        if (before === jobs.length) break;
+      }
+      candidates.sort((a, b) => a.tier - b.tier || b.priority - a.priority
+        || (Date.parse(b.job.created) || 0) - (Date.parse(a.job.created) || 0) || a.job.id.localeCompare(b.job.id));
+      const jobs = [];
+      for (const tier of [0, 1, 2]) {
+        const groups = new Map();
+        for (const candidate of candidates) {
+          if (candidate.tier !== tier) continue;
+          const { job } = candidate;
+          const company = job.company.toLowerCase();
+          if (!groups.has(company)) groups.set(company, []);
+          groups.get(company).push(job);
+        }
+        for (let index = 0; jobs.length < 40; index++) {
+          const before = jobs.length;
+          for (const group of groups.values()) {
+            if (group[index]) jobs.push(group[index]);
+            if (jobs.length === 40) break;
+          }
+          if (before === jobs.length) break;
+        }
       }
       return jobs;
     },
