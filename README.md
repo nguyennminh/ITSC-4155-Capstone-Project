@@ -101,6 +101,9 @@ Discover reads hosted listings from Discord, Cloudflare, Figma, Robinhood, Affir
 In Discover, select **Prioritize early-career jobs** to give relevant new-grad,
 junior, and level-I roles first pick of the 40 Greenhouse candidate slots.
 Other jobs can fill unused slots, and internships remain a separate filter.
+**Refresh Jobs** re-fetches those boards and shuffles relevant jobs across
+companies, favoring jobs outside the previous batch within each experience tier.
+A small pool can repeat; the shortlist still caps at 40.
 Set `GREENHOUSE_BOARDS` to a comma-separated list of up to eight Greenhouse board
 names to override them. Only standard hosted Greenhouse URLs are included so the
 Chrome extension can recognize the destination. Swipe right to open the employer

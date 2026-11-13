@@ -44,10 +44,17 @@ function normalize(row, board) {
   };
 }
 
-export function createGreenhouseProvider({ boards = process.env.GREENHOUSE_BOARDS || defaultBoards, fetchImpl = fetch, now = Date.now } = {}) {
+export function createGreenhouseProvider({ boards = process.env.GREENHOUSE_BOARDS || defaultBoards, fetchImpl = fetch, now = Date.now, random = Math.random } = {}) {
   const tokens = [...new Set(boards.split(',').map(board => board.trim().toLowerCase()).filter(Boolean))];
   const cached = new Map(), pending = new Map();
   const catalog = new Set(skillCatalog.map(canonicalSkill));
+  function shuffle(items) {
+    for (let i = items.length - 1; i > 0; i--) {
+      const j = Math.floor(random() * (i + 1));
+      [items[i], items[j]] = [items[j], items[i]];
+    }
+    return items;
+  }
   async function loadBoard(board, refresh) {
     const entry = cached.get(board);
     if (!refresh && entry && now() - entry.time < cacheDuration) return entry.jobs;
@@ -79,12 +86,13 @@ export function createGreenhouseProvider({ boards = process.env.GREENHOUSE_BOARD
   return {
     source: 'Greenhouse',
     async getJob(id) { return (await listings()).find(job => job.id === id); },
-    async getJobs({ skills = '', title = '', refresh = false, earlyCareer = false } = {}) {
+    async getJobs({ skills = '', title = '', refresh = false, earlyCareer = false, previousIds = [], excludedIds = [] } = {}) {
       const terms = [...new Set(skills.split(/[,;\n|]+/).map(skill => skill.trim().slice(0, 80)).filter(Boolean))].slice(0, 80);
       const wanted = new Set(terms.map(canonicalSkill));
       const extra = terms.filter(skill => !catalog.has(canonicalSkill(skill)));
       const preferred = title.trim().toLowerCase();
-      const seen = new Set();
+      const seen = new Set(excludedIds);
+      const previous = new Set(previousIds);
       const candidates = [];
       for (const job of await listings(refresh)) {
         if (seen.has(job.id)) continue;
@@ -103,21 +111,29 @@ export function createGreenhouseProvider({ boards = process.env.GREENHOUSE_BOARD
         || (Date.parse(b.job.created) || 0) - (Date.parse(a.job.created) || 0) || a.job.id.localeCompare(b.job.id));
       const jobs = [];
       for (const tier of [0, 1, 2]) {
-        const groups = new Map();
-        for (const candidate of candidates) {
-          if (candidate.tier !== tier) continue;
-          const { job } = candidate;
-          const company = job.company.toLowerCase();
-          if (!groups.has(company)) groups.set(company, []);
-          groups.get(company).push(job);
-        }
-        for (let index = 0; jobs.length < 40; index++) {
-          const before = jobs.length;
-          for (const group of groups.values()) {
-            if (group[index]) jobs.push(group[index]);
-            if (jobs.length === 40) break;
+        // Keep experience tiers intact, but favor jobs outside the previous batch.
+        for (const repeat of refresh ? [false, true] : [false]) {
+          const groups = new Map();
+          for (const candidate of candidates) {
+            if (candidate.tier !== tier || (refresh && previous.has(candidate.job.id) !== repeat)) continue;
+            const { job } = candidate;
+            const company = job.company.toLowerCase();
+            if (!groups.has(company)) groups.set(company, []);
+            groups.get(company).push(job);
           }
-          if (before === jobs.length) break;
+          const queues = [...groups.values()];
+          if (refresh) {
+            shuffle(queues);
+            for (const queue of queues) shuffle(queue);
+          }
+          for (let index = 0; jobs.length < 40; index++) {
+            const before = jobs.length;
+            for (const queue of queues) {
+              if (queue[index]) jobs.push(queue[index]);
+              if (jobs.length === 40) break;
+            }
+            if (before === jobs.length) break;
+          }
         }
       }
       return jobs;
