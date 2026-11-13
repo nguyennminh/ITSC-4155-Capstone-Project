@@ -285,8 +285,19 @@ export function createApp({ store: providedStore, extract = extractText, explain
     const profile = JSON.parse(req.user.profile_json);
     if (!profile.skills.trim()) throw new ApiError(422, 'Add skills from your resume or profile before matching jobs.');
     const earlyCareer = jobProvider.source === 'Greenhouse' && req.body?.earlyCareer === true;
-    const jobs = await withRecruiter(await jobProvider.getJobs({ ...searchOptions(profile), ...(earlyCareer ? { earlyCareer } : {}) }));
+    const refresh = req.body?.refresh === true;
+    const rotate = refresh && jobProvider.source === 'Greenhouse';
+    const ids = (value, limit) => Array.isArray(value) ? value.slice(0, limit)
+      .filter(id => typeof id === 'string' && id.length <= 200) : [];
+    const jobs = await withRecruiter(await jobProvider.getJobs({
+      ...searchOptions(profile), ...(earlyCareer ? { earlyCareer } : {}), ...(refresh ? { refresh } : {}),
+      ...(rotate ? { previousIds: ids(req.body.previousIds, 40), excludedIds: ids(req.body.excludedIds, 200) } : {}),
+    }));
     const result = await rank(profile, jobs, { userId: req.user.id });
+    if (rotate) {
+      const ranked = new Map(result.matches.map(match => [String(match.jobId), match]));
+      result.matches = jobs.map(job => ranked.get(String(job.id))).filter(Boolean);
+    }
     res.json({ jobs, ...result, jobSource: jobProvider.source, sampleJobs: false });
   });
   app.post('/api/jobs/explain', async (req, res) => {

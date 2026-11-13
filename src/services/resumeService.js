@@ -37,8 +37,8 @@ export async function parseResume(file, signal) {
 }
 export const getSavedResume = signal => api('/api/resumes', { signal });
 export const deleteSavedResume = () => api('/api/resumes/file', { method: 'DELETE' });
-export function getMatches(consent, signal, earlyCareer = false) {
+export function getMatches(consent, signal, earlyCareer = false, rotation = {}) {
   // Qualifications come from the server's saved confirmed profile, not browser claims.
   return api('/api/jobs/match', { method: 'POST', signal,
-    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ consent, ...(earlyCareer ? { earlyCareer } : {}) }) });
+    headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ consent, ...rotation, ...(earlyCareer ? { earlyCareer } : {}) }) });
 }

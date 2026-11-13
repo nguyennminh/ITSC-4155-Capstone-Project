@@ -151,7 +151,7 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   return <section>
     <PageHeader title="Your matches" subtitle={loading ? 'Finding jobs picked for you…' : !confirmed ? 'Complete your profile to find your matches' : matchesReady ? `${available.length} ${available.length === 1 ? 'job' : 'jobs'} picked for you` : 'Find roles that fit your profile'}/>
     <div className="discover-toolbar">
-      <button type="button" onClick={onRefreshJobs} disabled={!confirmed || busy || !onRefreshJobs} aria-label="Refresh job listings">
+      <button type="button" onClick={() => onRefreshJobs(skipped)} disabled={!confirmed || busy || !onRefreshJobs} aria-label="Refresh job listings">
         <RefreshCw size={17} aria-hidden="true"/> {loading ? 'Refreshing jobs…' : 'Refresh Jobs'}
       </button>
     </div>

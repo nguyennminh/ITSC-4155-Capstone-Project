@@ -69,3 +69,39 @@ test('early-career mode promotes relevant entry-level jobs before the Greenhouse
   const explanation = await call('/api/jobs/explain', { consent: true, jobId: preferred.data.jobs[0].id });
   assert.equal(explanation.status, 200);
 });
+
+test('refresh rotates relevant companies and jobs outside the prior batch, with early-career priority', async t => {
+  let requests = 0;
+  const jobProvider = createGreenhouseProvider({ boards: 'alpha,beta', random: () => 0, fetchImpl: async url => {
+    requests++;
+    const board = url.includes('/alpha/') ? 'alpha' : 'beta';
+    return Response.json({ jobs: [
+      ...Array.from({ length: 45 }, (_, i) => row(board, i + 1, { title: 'Software Engineer I', content: 'Use SQL.' })),
+      row(board, 99, { title: 'Senior Software Engineer', content: 'Use React and SQL.' }),
+      row(board, 100, { title: 'Junior Baker', content: 'Bake bread.' }),
+    ] });
+  } });
+  const { client } = await fixture(t, { jobProvider, rank: async (p, jobs) => ({ matches: rankJobs(p, jobs).reverse() }) });
+  const call = client();
+  await register(call);
+  await call('/api/profile/confirm', { confirmed: true, profile });
+  const initial = (await call('/api/jobs/match', { earlyCareer: true })).data;
+  const previousIds = initial.jobs.map(job => job.id);
+  const excludedId = 'greenhouse-alpha-9';
+  const response = await call('/api/jobs/match', { earlyCareer: true, refresh: true, previousIds, excludedIds: [excludedId] });
+  assert.equal(response.status, 200);
+  const { jobs, matches } = response.data;
+  assert.equal(requests, 4);
+  assert.equal(jobs.length, 40);
+  assert.ok(jobs.every(job => job.title === 'Software Engineer I' && !previousIds.includes(job.id) && job.id !== excludedId));
+  assert.equal(new Set(jobs.map(job => job.company)).size, 2);
+  assert.notEqual(jobs[0].company, initial.jobs[0].company);
+  assert.deepEqual(matches.map(match => match.jobId), jobs.map(job => job.id));
+});
+
+test('refresh can reuse jobs from the prior batch when there are too few alternatives', async () => {
+  const provider = createGreenhouseProvider({ boards: 'example', random: () => 0,
+    fetchImpl: async () => Response.json({ jobs: [row('example', 1), row('example', 2)] }) });
+  const jobs = await provider.getJobs({ skills: 'SQL', refresh: true, previousIds: ['greenhouse-example-1'] });
+  assert.deepEqual(jobs.map(job => job.id), ['greenhouse-example-2', 'greenhouse-example-1']);
+});

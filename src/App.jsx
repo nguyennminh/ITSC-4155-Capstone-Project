@@ -20,7 +20,6 @@ import Recruiter from "./pages/Recruiter.jsx";
 import Profile from "./pages/Profile.jsx";
 
 import { emptyProfile } from "./data/mockData.js";
-import { getJobs } from "./services/jobService.js";
 import { api, getMatches, jsonPost, onSessionExpired } from "./services/resumeService.js";
 import { getSavedJobs, removeSavedJob as deleteSavedJob, saveJob as persistSavedJob } from "./services/savedJobService.js";
 import { deleteAccount } from "./services/resumeService.js";
@@ -98,7 +97,7 @@ export default function App() {
     setLoading(false); setError(""); setMatchNotice(""); setDetail(null);
   }
 
-  async function loadMatches({ refresh = false } = {}) {
+  async function loadMatches({ refresh = false, skipped = [] } = {}) {
     if (matchingPending.current) return;
     const version = accountVersion.current;
     const request = ++matchingVersion.current;
@@ -107,12 +106,12 @@ export default function App() {
     setLoading(true); setError(""); setMatchNotice("");
     setJobs([]); setRecommendations([]); setMatchesReady(false); setDetail(null);
     try {
-      // Refresh the provider cache before ranking the new listings.
-      if (refresh) {
-        await getJobs({ refresh: true });
-        if (!isCurrent()) return;
-      }
-      const result = await getMatches(undefined, undefined, earlyCareer.current);
+      const rotation = refresh ? {
+        refresh: true,
+        previousIds: jobs.map(job => String(job.id)).slice(0, 40),
+        excludedIds: [...new Set([...saved, ...applications.map(application => application.id), ...skipped].map(String))].slice(0, 200),
+      } : {};
+      const result = await getMatches(undefined, undefined, earlyCareer.current, rotation);
       if (!isCurrent()) return;
       setJobs(result.jobs); setRecommendations(result.matches);
       setJobSource(result.jobSource || result.jobs[0]?.source || '');
@@ -124,8 +123,8 @@ export default function App() {
     }
   }
 
-  function refreshJobs() {
-    return loadMatches({ refresh: true });
+  function refreshJobs(skipped = []) {
+    return loadMatches({ refresh: true, skipped });
   }
 
   function changeEarlyCareer(enabled) {
