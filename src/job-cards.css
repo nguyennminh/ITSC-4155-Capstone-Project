@@ -77,3 +77,20 @@
 @media (min-width: 1100px) {
   .discover-match-layout { width: min(100%, 864px); grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); gap: 1.5rem; }
 }
+
+.discover-actions.discover-actions-with-undo {
+  grid-template-columns: repeat(4, 56px);
+  gap: .5rem;
+}
+.discover-actions-with-undo > .discover-action {
+  grid-column: auto;
+  grid-row: 1;
+  width: 52px;
+  min-width: 0;
+  height: 52px;
+}
+.discover-actions-with-undo > .action-save .action-caption {
+  white-space: normal;
+  width: 68px;
+  text-align: center;
+}

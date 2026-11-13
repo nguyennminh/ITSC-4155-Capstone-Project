@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Heart, RefreshCw, Undo2, X } from 'lucide-react';
-import { defaultJobFilters, matchesJobFilters } from '../services/jobFilters.js';
+import { annualSalaryRange, defaultJobFilters, matchesJobFilters } from '../services/jobFilters.js';
 import { safeExternalUrl } from '../services/linkService.js';
 import { splitSkills } from '../services/skillService.js';
 import JobCard from '../components/JobCard.jsx';
@@ -38,7 +38,9 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   });
   useEffect(() => { try { sessionStorage.setItem(filterStorageKey, JSON.stringify(filters)); } catch { /* Storage can be disabled. */ } }, [filterStorageKey, filters]);
   const updateFilter = (key, value) => setFilters(previous => ({ ...previous, [key]: value }));
-  const activeFilters = Object.entries(filters).filter(([key, value]) => value !== '' && value !== 'Any');
+  const salaryAvailable = jobs.some(job => annualSalaryRange(job.salary) !== null);
+  const effectiveFilters = salaryAvailable ? filters : { ...filters, minSalary: '', maxSalary: '' };
+  const activeFilters = Object.entries(effectiveFilters).filter(([key, value]) => value !== '' && value !== 'Any');
 
   useEffect(() => {
     mounted.current = true;
@@ -53,9 +55,13 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   const jobsById = new Map(jobs.map(job => [String(job.id), job]));
   const available = (matches || []).filter(match => {
     const candidate = jobsById.get(String(match.jobId));
-    return candidate && matchesJobFilters(candidate, filters) && !skipped.includes(String(match.jobId))
+    return candidate && matchesJobFilters(candidate, effectiveFilters) && !skipped.includes(String(match.jobId))
       && !started.includes(String(match.jobId)) && !saved.some(id => String(id) === String(match.jobId));
   });
+  const lastSkippedId = skipped.at(-1);
+  const lastSkippedJob = jobsById.get(lastSkippedId);
+  const canUndo = Boolean(lastSkippedJob && matches?.some(match => String(match.jobId) === lastSkippedId)
+    && !started.includes(lastSkippedId) && !saved.some(id => String(id) === lastSkippedId));
   const current = available.find(match => String(match.jobId) === restoredJobId) || available[0];
   const job = jobsById.get(String(current?.jobId));
   const busy = Boolean(pendingAction || loading || swipeDirection);
@@ -70,8 +76,8 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   }
 
   function undoSkip() {
-    if (busy || decisionPending.current || skipped.length === 0) return;
-    const lastSkippedId = skipped[skipped.length - 1];
+    if (busy || decisionPending.current || !canUndo) return;
+    if (!matchesJobFilters(lastSkippedJob, effectiveFilters)) setFilters({ ...defaultJobFilters });
     setRestoredJobId(lastSkippedId);
     setSkipped(ids => ids.slice(0, -1));
     setDecisionNotice('Last skipped job restored.');
@@ -158,10 +164,10 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
         <label>Employment type<select value={filters.type} onChange={event => updateFilter('type', event.target.value)}>{['Any', 'Full-time', 'Part-time', 'Internship', 'Contract'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Work arrangement<select value={filters.mode} onChange={event => updateFilter('mode', event.target.value)}>{['Any', 'Remote', 'Hybrid', 'On-site'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Experience level<select value={filters.experience} onChange={event => updateFilter('experience', event.target.value)}>{['Any', 'Internship', 'Entry-level', 'Mid-level', 'Senior'].map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Minimum annual salary ($)<input type="number" min="0" step="1000" value={filters.minSalary} onChange={event => updateFilter('minSalary', event.target.value)} placeholder="No minimum"/></label>
-        <label>Maximum annual salary ($)<input type="number" min="0" step="1000" value={filters.maxSalary} onChange={event => updateFilter('maxSalary', event.target.value)} placeholder="No maximum"/></label>
+        <label>Minimum annual salary ($)<input type="number" min="0" step="1000" disabled={!salaryAvailable} value={effectiveFilters.minSalary} onChange={event => updateFilter('minSalary', event.target.value)} placeholder="No minimum"/></label>
+        <label>Maximum annual salary ($)<input type="number" min="0" step="1000" disabled={!salaryAvailable} value={effectiveFilters.maxSalary} onChange={event => updateFilter('maxSalary', event.target.value)} placeholder="No maximum"/></label>
       </div>
-      <p className="muted">Salary filters exclude listings without annual salary data. Experience levels are identified from explicit job titles when no level is provided.</p>
+      <p className="muted">{salaryAvailable ? 'Salary filters exclude listings without annual salary data.' : 'Salary filters are unavailable for these listings.'} Experience levels are identified from explicit job titles when no level is provided.</p>
       {activeFilters.length > 0 && <div className="discover-active-filters" aria-label="Active filters">
         {activeFilters.map(([key, value]) => <button type="button" key={key} onClick={() => updateFilter(key, defaultJobFilters[key])} aria-label={`Remove ${key} filter`}>
           {key.replace(/([A-Z])/g, ' $1')}: {key.toLowerCase().includes('salary') ? `$${Number(value).toLocaleString()}` : value} ×
@@ -176,8 +182,8 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
       <h2>{available.length === 0 && activeFilters.length ? 'No jobs match your filters' : matches.length ? 'You have reviewed all matches' : 'No matching jobs'}</h2>
       <p>{activeFilters.length ? 'Remove some filters or clear all filters to see more jobs.' : 'Update your qualifications or broaden your preferences to find other opportunities.'}</p>
       {skipped.length > 0 && <div className="discover-actions">
-        <button type="button" className="discover-action action-undo" disabled={busy} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true"/><span className="action-caption">Undo</span></button>
-        <button type="button" onClick={() => { setSkipped([]); setRestoredJobId(null); setDecisionNotice('All skipped jobs restored.'); }}>Review skipped jobs</button>
+        <button type="button" className="discover-action action-undo" disabled={busy || !canUndo} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true"/><span className="action-caption">Undo</span></button>
+        <button type="button" onClick={() => { setSkipped([]); setRestoredJobId(null); setDecisionNotice('Skip history cleared.'); }}>Review skipped jobs</button>
       </div>}
     </div>}
     <p id="swipe-help" className="muted">Hold and drag the job card left to pass or right to open the application. The card highlights your choice; release near the center to cancel. You can also use the buttons or focus the card and use left/right arrow keys. Use Undo to restore the last skipped job. Skips are remembered in this browser tab for your account.</p>
@@ -205,9 +211,9 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
       <JobCard job={job} recommendation={current} onDetails={onDetails}/>
     </div>
     </div>
-    <div className="discover-actions">
+    <div className="discover-actions discover-actions-with-undo">
       <button type="button" className="discover-action action-pass" disabled={busy} onClick={() => animateDecision('left')}><X size={25} aria-hidden="true"/><span className="action-caption">Pass</span></button>
-      <button type="button" className="discover-action action-undo" disabled={busy || skipped.length === 0} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true"/><span className="action-caption">Undo</span></button>
+      <button type="button" className="discover-action action-undo" disabled={busy || !canUndo} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true"/><span className="action-caption">Undo</span></button>
       <button type="button" className="discover-action action-apply" disabled={busy} onClick={saveForLater}><Heart size={25} aria-hidden="true"/><span className="action-caption">Save</span></button>
       <button type="button" className="discover-action action-save" disabled={busy} onClick={() => animateDecision('right')}><ArrowUpRight size={25} aria-hidden="true"/><span className="action-caption">Open application</span></button>
     </div>

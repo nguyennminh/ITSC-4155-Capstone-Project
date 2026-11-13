@@ -26,3 +26,8 @@ test('combines location, experience, salary, and work mode filters', () => {
   assert.equal(matchesJobFilters(job, { ...defaultJobFilters, location: 'Raleigh' }), false);
   assert.equal(matchesJobFilters(job, { ...defaultJobFilters, minSalary: '110000' }), false);
 });
+
+test('open-ended pay can satisfy a higher minimum and reversed bounds never match', () => {
+  assert.equal(matchesJobFilters({ salary: '$90,000+' }, { ...defaultJobFilters, minSalary: '100000' }), true);
+  assert.equal(matchesJobFilters({ salary: '$80,000–$130,000' }, { ...defaultJobFilters, minSalary: '120000', maxSalary: '100000' }), false);
+});
