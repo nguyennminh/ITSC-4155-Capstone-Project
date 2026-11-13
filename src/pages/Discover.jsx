@@ -28,6 +28,7 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   const [restoredJobId, setRestoredJobId] = useState(null);
   const [error, setError] = useState('');
   const filterStorageKey = `jobswipe-filters:${accountId}`;
+  const [showAllFilters, setShowAllFilters] = useState(false);
   const [filters, setFilters] = useState(() => {
     try {
       const savedFilters = JSON.parse(sessionStorage.getItem(filterStorageKey) || '{}');
@@ -149,10 +150,10 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   });
 
   return <section>
-    <PageHeader title="Your matches" subtitle={loading ? 'Finding jobs picked for you…' : !confirmed ? 'Complete your profile to find your matches' : matchesReady ? `${available.length} ${available.length === 1 ? 'job' : 'jobs'} picked for you` : 'Find roles that fit your profile'}/>
+    <PageHeader title="Your matches" subtitle={loading ? 'Finding jobs picked for you…' : !confirmed ? 'Complete your profile to find your matches' : matchesReady ? `${available.length} ${available.length === 1 ? 'job' : 'jobs'} picked for you` : 'Find roles that fit your profile'} />
     <div className="discover-toolbar">
       <button type="button" onClick={() => onRefreshJobs(skipped)} disabled={!confirmed || busy || !onRefreshJobs} aria-label="Refresh job listings">
-        <RefreshCw size={17} aria-hidden="true"/> {loading ? 'Refreshing jobs…' : 'Refresh Jobs'}
+        <RefreshCw size={17} aria-hidden="true" /> {loading ? 'Refreshing jobs…' : 'Refresh Jobs'}
       </button>
     </div>
     {jobSource === 'Greenhouse' && <label>
@@ -160,34 +161,116 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
         onChange={event => onEarlyCareerChange(event.target.checked)} />
       Prioritize early-career jobs
     </label>}
+
     <div className="card discover-filters" aria-label="Filter jobs">
-      <h2>Filter jobs</h2>
-      <div className="discover-filter-grid">
-        <label>Keyword<input value={filters.keyword} onChange={event => updateFilter('keyword', event.target.value)} placeholder="Job title or skill"/></label>
-        <label>Location<input value={filters.location} onChange={event => updateFilter('location', event.target.value)} placeholder="City or state"/></label>
-        <label>Company<input value={filters.company} onChange={event => updateFilter('company', event.target.value)} placeholder="Company name"/></label>
-        <label>Employment type<select value={filters.type} onChange={event => updateFilter('type', event.target.value)}>{['Any', 'Full-time', 'Part-time', 'Internship', 'Contract'].map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Work arrangement<select value={filters.mode} onChange={event => updateFilter('mode', event.target.value)}>{['Any', 'Remote', 'Hybrid', 'On-site'].map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Experience level<select value={filters.experience} onChange={event => updateFilter('experience', event.target.value)}>{['Any', 'Internship', 'Entry-level', 'Mid-level', 'Senior'].map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Minimum annual salary ($)<input type="number" min="0" step="1000" disabled={!salaryAvailable} value={effectiveFilters.minSalary} onChange={event => updateFilter('minSalary', event.target.value)} placeholder="No minimum"/></label>
-        <label>Maximum annual salary ($)<input type="number" min="0" step="1000" disabled={!salaryAvailable} value={effectiveFilters.maxSalary} onChange={event => updateFilter('maxSalary', event.target.value)} placeholder="No maximum"/></label>
+      <div className="discover-filter-heading">
+        <h2>Filter jobs</h2>
+        <span className="muted" role="status" aria-live="polite">
+          {available.length} available {available.length === 1 ? 'job' : 'jobs'}
+        </span>
       </div>
-      <p className="muted">{salaryAvailable ? 'Salary filters exclude listings without annual salary data.' : 'Salary filters are unavailable for these listings.'} Experience levels are identified from explicit job titles when no level is provided.</p>
-      {activeFilters.length > 0 && <div className="discover-active-filters" aria-label="Active filters">
-        {activeFilters.map(([key, value]) => <button type="button" key={key} onClick={() => updateFilter(key, defaultJobFilters[key])} aria-label={`Remove ${key} filter`}>
-          {key.replace(/([A-Z])/g, ' $1')}: {key.toLowerCase().includes('salary') ? `$${Number(value).toLocaleString()}` : value} ×
-        </button>)}
-        <button type="button" onClick={() => setFilters({ ...defaultJobFilters })}>Clear all filters</button>
-      </div>}
-      <p role="status" aria-live="polite">{available.length} available {available.length === 1 ? 'job' : 'jobs'} match your filters.</p>
+
+      <div className="discover-filter-grid discover-filter-primary">
+        <label>
+          Keyword
+          <input
+            value={filters.keyword}
+            onChange={event => updateFilter('keyword', event.target.value)}
+            placeholder="Job title or skill"
+          />
+        </label>
+        <label>
+          Location
+          <input
+            value={filters.location}
+            onChange={event => updateFilter('location', event.target.value)}
+            placeholder="City or state"
+          />
+        </label>
+      </div>
+
+      <div className="discover-filter-controls">
+        <button
+          type="button"
+          className="discover-filter-toggle"
+          aria-expanded={showAllFilters}
+          aria-controls="discover-advanced-filters"
+          onClick={() => setShowAllFilters(previous => !previous)}
+        >
+          {showAllFilters ? 'Hide filters' : 'All filters'}
+          {activeFilters.length > 0 ? ` (${activeFilters.length} active)` : ''}
+          <span aria-hidden="true">{showAllFilters ? '▴' : '▾'}</span>
+        </button>
+        {activeFilters.length > 0 && (
+          <button type="button" onClick={() => setFilters({ ...defaultJobFilters })}>
+            Clear all filters
+          </button>
+        )}
+      </div>
+
+      <div id="discover-advanced-filters" hidden={!showAllFilters}>
+        <div className="discover-filter-grid discover-filter-advanced">
+          <label>Company
+            <input value={filters.company} onChange={event => updateFilter('company', event.target.value)} placeholder="Company name" />
+          </label>
+          <label>Employment type
+            <select value={filters.type} onChange={event => updateFilter('type', event.target.value)}>
+              {['Any', 'Full-time', 'Part-time', 'Internship', 'Contract'].map(value => <option key={value}>{value}</option>)}
+            </select>
+          </label>
+          <label>Work arrangement
+            <select value={filters.mode} onChange={event => updateFilter('mode', event.target.value)}>
+              {['Any', 'Remote', 'Hybrid', 'On-site'].map(value => <option key={value}>{value}</option>)}
+            </select>
+          </label>
+          <label>Experience level
+            <select value={filters.experience} onChange={event => updateFilter('experience', event.target.value)}>
+              {['Any', 'Internship', 'Entry-level', 'Mid-level', 'Senior'].map(value => <option key={value}>{value}</option>)}
+            </select>
+          </label>
+          <label>Minimum annual salary ($)
+            <input type="number" min="0" step="1000" disabled={!salaryAvailable}
+              value={effectiveFilters.minSalary}
+              onChange={event => updateFilter('minSalary', event.target.value)}
+              placeholder="No minimum" />
+          </label>
+          <label>Maximum annual salary ($)
+            <input type="number" min="0" step="1000" disabled={!salaryAvailable}
+              value={effectiveFilters.maxSalary}
+              onChange={event => updateFilter('maxSalary', event.target.value)}
+              placeholder="No maximum" />
+          </label>
+        </div>
+        <p className="muted discover-filter-note">
+          {salaryAvailable
+            ? 'Salary filters exclude listings without annual salary data.'
+            : 'Salary filters are unavailable for these listings.'}
+          {' '}Experience levels are identified from explicit job titles when no level is provided.
+        </p>
+      </div>
+
+      {activeFilters.length > 0 && (
+        <div className="discover-active-filters" aria-label="Active filters">
+          {activeFilters.map(([key, value]) => (
+            <button type="button" key={key}
+              onClick={() => updateFilter(key, defaultJobFilters[key])}
+              aria-label={`Remove ${key} filter`}>
+              {key.replace(/([A-Z])/g, ' $1')}: {key.toLowerCase().includes('salary')
+                ? `$${Number(value).toLocaleString()}`
+                : value} ×
+            </button>
+          ))}
+        </div>
+      )}
     </div>
+
     <p>{jobSource && <>Listings from {jobSource}. </>}Swipe left to pass or right to open the employer application in a new tab. Save keeps a job for later.</p>
-    
+
     {confirmed && !loading && matchesReady && !job && <div className="card">
       <h2>{available.length === 0 && activeFilters.length ? 'No jobs match your filters' : matches.length ? 'You have reviewed all matches' : 'No matching jobs'}</h2>
       <p>{activeFilters.length ? 'Remove some filters or clear all filters to see more jobs.' : 'Update your qualifications or broaden your preferences to find other opportunities.'}</p>
       {skipped.length > 0 && <div className="discover-actions">
-        <button type="button" className="discover-action action-undo" disabled={busy || !canUndo} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true"/><span className="action-caption">Undo</span></button>
+        <button type="button" className="discover-action action-undo" disabled={busy || !canUndo} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true" /><span className="action-caption">Undo</span></button>
         <button type="button" onClick={() => { setSkipped([]); setRestoredJobId(null); setDecisionNotice('Skip history cleared.'); }}>Review skipped jobs</button>
       </div>}
     </div>}
@@ -195,36 +278,36 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
     <p role="status" aria-live="polite">{pendingAction || decisionNotice}</p>
     {applicationLink && <p><a href={applicationLink} target="_blank" rel="noopener noreferrer">Open employer application in a new tab ↗</a></p>}
     {job && <div className="discover-match-layout">
-    <div className="discover-deck-area">
-      <div className="discover-deck">
-        {available.length > 1 && <div className="deck-backing" aria-hidden="true"/>}
-      <div
-      key={job.id}
-      style={drag ? { transform: `translateX(${drag.x}px) rotate(${drag.x / 30}deg)` } : undefined}
-      className={`swipe-surface${drag ? ' is-dragging' : ''}${swipeDirection ? ` swipe-exit-${swipeDirection}` : ''}`}
-      role="region"
-      aria-label="Current recommended job"
-      aria-describedby="swipe-help"
-      aria-busy={busy}
-      tabIndex={0}
-      {...gestures}
-    >
-      {drag && <div className={`swipe-targets${drag.x < -12 ? ' choosing-pass' : drag.x > 12 ? ' choosing-save' : ''}`} aria-hidden="true">
-        <div className={`swipe-target swipe-target-pass${drag.direction === 'left' ? ' is-active' : ''}`}><strong>Pass</strong><span>Skip this job</span></div>
-        <div className={`swipe-target swipe-target-save${drag.direction === 'right' ? ' is-active' : ''}`}><strong>Apply</strong><span>Open in a new tab</span></div>
-      </div>}
-      <JobCard job={job} recommendation={current} onDetails={onDetails}/>
-    </div>
-    </div>
-    <div className="discover-actions discover-actions-with-undo">
-      <button type="button" className="discover-action action-pass" disabled={busy} onClick={() => animateDecision('left')}><X size={25} aria-hidden="true"/><span className="action-caption">Pass</span></button>
-      <button type="button" className="discover-action action-undo" disabled={busy || !canUndo} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true"/><span className="action-caption">Undo</span></button>
-      <button type="button" className="discover-action action-apply" disabled={busy} onClick={saveForLater}><Heart size={25} aria-hidden="true"/><span className="action-caption">Save</span></button>
-      <button type="button" className="discover-action action-save" disabled={busy} onClick={() => animateDecision('right')}><ArrowUpRight size={25} aria-hidden="true"/><span className="action-caption">Open application</span></button>
-    </div>
-    <div className="gesture-hints" aria-hidden="true"><span>← Pass</span><span>View details to learn more</span><span>Apply →</span></div>
-    </div>
-    <MatchInsights job={job} recommendation={current} profile={profile} onDetails={onDetails}/>
+      <div className="discover-deck-area">
+        <div className="discover-deck">
+          {available.length > 1 && <div className="deck-backing" aria-hidden="true" />}
+          <div
+            key={job.id}
+            style={drag ? { transform: `translateX(${drag.x}px) rotate(${drag.x / 30}deg)` } : undefined}
+            className={`swipe-surface${drag ? ' is-dragging' : ''}${swipeDirection ? ` swipe-exit-${swipeDirection}` : ''}`}
+            role="region"
+            aria-label="Current recommended job"
+            aria-describedby="swipe-help"
+            aria-busy={busy}
+            tabIndex={0}
+            {...gestures}
+          >
+            {drag && <div className={`swipe-targets${drag.x < -12 ? ' choosing-pass' : drag.x > 12 ? ' choosing-save' : ''}`} aria-hidden="true">
+              <div className={`swipe-target swipe-target-pass${drag.direction === 'left' ? ' is-active' : ''}`}><strong>Pass</strong><span>Skip this job</span></div>
+              <div className={`swipe-target swipe-target-save${drag.direction === 'right' ? ' is-active' : ''}`}><strong>Apply</strong><span>Open in a new tab</span></div>
+            </div>}
+            <JobCard job={job} recommendation={current} onDetails={onDetails} />
+          </div>
+        </div>
+        <div className="discover-actions discover-actions-with-undo">
+          <button type="button" className="discover-action action-pass" disabled={busy} onClick={() => animateDecision('left')}><X size={25} aria-hidden="true" /><span className="action-caption">Pass</span></button>
+          <button type="button" className="discover-action action-undo" disabled={busy || !canUndo} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true" /><span className="action-caption">Undo</span></button>
+          <button type="button" className="discover-action action-apply" disabled={busy} onClick={saveForLater}><Heart size={25} aria-hidden="true" /><span className="action-caption">Save</span></button>
+          <button type="button" className="discover-action action-save" disabled={busy} onClick={() => animateDecision('right')}><ArrowUpRight size={25} aria-hidden="true" /><span className="action-caption">Open application</span></button>
+        </div>
+        <div className="gesture-hints" aria-hidden="true"><span>← Pass</span><span>View details to learn more</span><span>Apply →</span></div>
+      </div>
+      <MatchInsights job={job} recommendation={current} profile={profile} onDetails={onDetails} />
     </div>}
     <div className="card">
       <h2>Find your strongest matches</h2>
