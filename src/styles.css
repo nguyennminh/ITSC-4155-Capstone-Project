@@ -726,3 +726,31 @@ textarea { line-height: 1.6; }
 .discover-filter-grid input, .discover-filter-grid select { width: 100%; min-width: 0; padding: .55rem; border: 1px solid #c5d2de; border-radius: 6px; }
 .discover-active-filters { display: flex; flex-wrap: wrap; gap: .5rem; margin: .8rem 0; }
 .discover-active-filters button { padding: .35rem .6rem; }
+
+/* Undo Swipe button */
+.action-undo {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+
+.action-undo:hover:not(:disabled) {
+  background: var(--soft);
+  border-color: var(--accent);
+}
+
+[data-theme="dark"] .action-undo {
+  background: #273a48;
+  color: var(--ink);
+  border-color: var(--border);
+}
+
+[data-theme="dark"] .action-undo:hover:not(:disabled) {
+  background: #34505c;
+  border-color: var(--accent);
+}

@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Heart, RefreshCw, X } from 'lucide-react';
+import { ArrowUpRight, Heart, RefreshCw, Undo2, X } from 'lucide-react';
 import { defaultJobFilters, matchesJobFilters } from '../services/jobFilters.js';
 import { safeExternalUrl } from '../services/linkService.js';
 import { splitSkills } from '../services/skillService.js';
@@ -25,6 +25,7 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   const decisionPending = useRef(false);
   const animationTimer = useRef(null);
   const [swipeDirection, setSwipeDirection] = useState('');
+  const [restoredJobId, setRestoredJobId] = useState(null);
   const [error, setError] = useState('');
   const filterStorageKey = `jobswipe-filters:${accountId}`;
   const [filters, setFilters] = useState(() => {
@@ -55,7 +56,7 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
     return candidate && matchesJobFilters(candidate, filters) && !skipped.includes(String(match.jobId))
       && !started.includes(String(match.jobId)) && !saved.some(id => String(id) === String(match.jobId));
   });
-  const current = available[0];
+  const current = available.find(match => String(match.jobId) === restoredJobId) || available[0];
   const job = jobsById.get(String(current?.jobId));
   const busy = Boolean(pendingAction || loading || swipeDirection);
   const resumeSkills = splitSkills(profile.skills);
@@ -63,7 +64,18 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
 
   function skip() {
     if (!job || decisionPending.current || loading) return;
+    setRestoredJobId(null);
     advance(job.id);
+    setDecisionNotice(`Skipped ${job.title}. Use Undo to restore it.`);
+  }
+
+  function undoSkip() {
+    if (busy || decisionPending.current || skipped.length === 0) return;
+    const lastSkippedId = skipped[skipped.length - 1];
+    setRestoredJobId(lastSkippedId);
+    setSkipped(ids => ids.slice(0, -1));
+    setDecisionNotice('Last skipped job restored.');
+    setError('');
   }
 
   async function saveForLater() {
@@ -163,9 +175,12 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
     {confirmed && !loading && matchesReady && !job && <div className="card">
       <h2>{available.length === 0 && activeFilters.length ? 'No jobs match your filters' : matches.length ? 'You have reviewed all matches' : 'No matching jobs'}</h2>
       <p>{activeFilters.length ? 'Remove some filters or clear all filters to see more jobs.' : 'Update your qualifications or broaden your preferences to find other opportunities.'}</p>
-      {matches.length > 0 && skipped.length > 0 && <button onClick={() => setSkipped([])}>Review skipped jobs</button>}
+      {skipped.length > 0 && <div className="discover-actions">
+        <button type="button" className="discover-action action-undo" disabled={busy} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true"/><span className="action-caption">Undo</span></button>
+        <button type="button" onClick={() => { setSkipped([]); setRestoredJobId(null); setDecisionNotice('All skipped jobs restored.'); }}>Review skipped jobs</button>
+      </div>}
     </div>}
-    <p id="swipe-help" className="muted">Hold and drag the job card left to pass or right to open the application. The card highlights your choice; release near the center to cancel. You can also use the buttons or focus the card and use left/right arrow keys. Skips are remembered in this browser tab for your account.</p>
+    <p id="swipe-help" className="muted">Hold and drag the job card left to pass or right to open the application. The card highlights your choice; release near the center to cancel. You can also use the buttons or focus the card and use left/right arrow keys. Use Undo to restore the last skipped job. Skips are remembered in this browser tab for your account.</p>
     <p role="status" aria-live="polite">{pendingAction || decisionNotice}</p>
     {applicationLink && <p><a href={applicationLink} target="_blank" rel="noopener noreferrer">Open employer application in a new tab ↗</a></p>}
     {job && <div className="discover-match-layout">
@@ -192,6 +207,7 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
     </div>
     <div className="discover-actions">
       <button type="button" className="discover-action action-pass" disabled={busy} onClick={() => animateDecision('left')}><X size={25} aria-hidden="true"/><span className="action-caption">Pass</span></button>
+      <button type="button" className="discover-action action-undo" disabled={busy || skipped.length === 0} onClick={undoSkip} aria-label="Undo last skipped job"><Undo2 size={25} aria-hidden="true"/><span className="action-caption">Undo</span></button>
       <button type="button" className="discover-action action-apply" disabled={busy} onClick={saveForLater}><Heart size={25} aria-hidden="true"/><span className="action-caption">Save</span></button>
       <button type="button" className="discover-action action-save" disabled={busy} onClick={() => animateDecision('right')}><ArrowUpRight size={25} aria-hidden="true"/><span className="action-caption">Open application</span></button>
     </div>
