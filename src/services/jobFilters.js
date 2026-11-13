@@ -8,7 +8,7 @@ export function annualSalaryRange(value) {
   const amounts = [...text.matchAll(/\$\s*([\d,]+(?:\.\d+)?)\s*([kK])?\b/g)]
     .map(match => Number(match[1].replaceAll(',', '')) * (match[2] ? 1000 : 1));
   if (!amounts.length || amounts.some(amount => !Number.isFinite(amount) || amount < 1000)) return null;
-  return { min: Math.min(...amounts), max: Math.max(...amounts) };
+  return { min: Math.min(...amounts), max: amounts.length === 1 && /\+/.test(text) ? Infinity : Math.max(...amounts) };
 }
 
 export function jobExperience(job) {
@@ -37,6 +37,7 @@ export function matchesJobFilters(job, filters) {
   if (filters.mode !== 'Any' && job.mode !== filters.mode) return false;
   if (filters.experience !== 'Any' && jobExperience(job) !== filters.experience) return false;
   if (filters.minSalary !== '' || filters.maxSalary !== '') {
+    if (filters.minSalary !== '' && filters.maxSalary !== '' && Number(filters.minSalary) > Number(filters.maxSalary)) return false;
     const range = annualSalaryRange(job.salary);
     if (!range) return false;
     if (filters.minSalary !== '' && (Number(filters.minSalary) < 0 || !Number.isFinite(Number(filters.minSalary)) || range.max < Number(filters.minSalary))) return false;

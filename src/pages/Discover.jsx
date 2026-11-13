@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Heart, RefreshCw, X } from 'lucide-react';
-import { defaultJobFilters, matchesJobFilters } from '../services/jobFilters.js';
+import { annualSalaryRange, defaultJobFilters, matchesJobFilters } from '../services/jobFilters.js';
 import { safeExternalUrl } from '../services/linkService.js';
 import { splitSkills } from '../services/skillService.js';
 import JobCard from '../components/JobCard.jsx';
@@ -37,7 +37,9 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   });
   useEffect(() => { try { sessionStorage.setItem(filterStorageKey, JSON.stringify(filters)); } catch { /* Storage can be disabled. */ } }, [filterStorageKey, filters]);
   const updateFilter = (key, value) => setFilters(previous => ({ ...previous, [key]: value }));
-  const activeFilters = Object.entries(filters).filter(([key, value]) => value !== '' && value !== 'Any');
+  const salaryAvailable = jobs.some(job => annualSalaryRange(job.salary) !== null);
+  const effectiveFilters = salaryAvailable ? filters : { ...filters, minSalary: '', maxSalary: '' };
+  const activeFilters = Object.entries(effectiveFilters).filter(([key, value]) => value !== '' && value !== 'Any');
 
   useEffect(() => {
     mounted.current = true;
@@ -52,7 +54,7 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   const jobsById = new Map(jobs.map(job => [String(job.id), job]));
   const available = (matches || []).filter(match => {
     const candidate = jobsById.get(String(match.jobId));
-    return candidate && matchesJobFilters(candidate, filters) && !skipped.includes(String(match.jobId))
+    return candidate && matchesJobFilters(candidate, effectiveFilters) && !skipped.includes(String(match.jobId))
       && !started.includes(String(match.jobId)) && !saved.some(id => String(id) === String(match.jobId));
   });
   const current = available[0];
@@ -146,10 +148,10 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
         <label>Employment type<select value={filters.type} onChange={event => updateFilter('type', event.target.value)}>{['Any', 'Full-time', 'Part-time', 'Internship', 'Contract'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Work arrangement<select value={filters.mode} onChange={event => updateFilter('mode', event.target.value)}>{['Any', 'Remote', 'Hybrid', 'On-site'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Experience level<select value={filters.experience} onChange={event => updateFilter('experience', event.target.value)}>{['Any', 'Internship', 'Entry-level', 'Mid-level', 'Senior'].map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Minimum annual salary ($)<input type="number" min="0" step="1000" value={filters.minSalary} onChange={event => updateFilter('minSalary', event.target.value)} placeholder="No minimum"/></label>
-        <label>Maximum annual salary ($)<input type="number" min="0" step="1000" value={filters.maxSalary} onChange={event => updateFilter('maxSalary', event.target.value)} placeholder="No maximum"/></label>
+        <label>Minimum annual salary ($)<input type="number" min="0" step="1000" disabled={!salaryAvailable} value={effectiveFilters.minSalary} onChange={event => updateFilter('minSalary', event.target.value)} placeholder="No minimum"/></label>
+        <label>Maximum annual salary ($)<input type="number" min="0" step="1000" disabled={!salaryAvailable} value={effectiveFilters.maxSalary} onChange={event => updateFilter('maxSalary', event.target.value)} placeholder="No maximum"/></label>
       </div>
-      <p className="muted">Salary filters exclude listings without annual salary data. Experience levels are identified from explicit job titles when no level is provided.</p>
+      <p className="muted">{salaryAvailable ? 'Salary filters exclude listings without annual salary data.' : 'Salary filters are unavailable for these listings.'} Experience levels are identified from explicit job titles when no level is provided.</p>
       {activeFilters.length > 0 && <div className="discover-active-filters" aria-label="Active filters">
         {activeFilters.map(([key, value]) => <button type="button" key={key} onClick={() => updateFilter(key, defaultJobFilters[key])} aria-label={`Remove ${key} filter`}>
           {key.replace(/([A-Z])/g, ' $1')}: {key.toLowerCase().includes('salary') ? `$${Number(value).toLocaleString()}` : value} ×
