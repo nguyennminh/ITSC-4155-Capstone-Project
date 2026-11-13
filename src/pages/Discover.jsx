@@ -26,7 +26,16 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
   const animationTimer = useRef(null);
   const [swipeDirection, setSwipeDirection] = useState('');
   const [error, setError] = useState('');
-  const [filters, setFilters] = useState(defaultJobFilters);
+  const filterStorageKey = `jobswipe-filters:${accountId}`;
+  const [filters, setFilters] = useState(() => {
+    try {
+      const savedFilters = JSON.parse(sessionStorage.getItem(filterStorageKey) || '{}');
+      return savedFilters && typeof savedFilters === 'object' && !Array.isArray(savedFilters)
+        ? Object.fromEntries(Object.entries(defaultJobFilters).map(([key, fallback]) => [key, typeof savedFilters[key] === 'string' ? savedFilters[key] : fallback]))
+        : { ...defaultJobFilters };
+    } catch { return { ...defaultJobFilters }; }
+  });
+  useEffect(() => { try { sessionStorage.setItem(filterStorageKey, JSON.stringify(filters)); } catch { /* Storage can be disabled. */ } }, [filterStorageKey, filters]);
   const updateFilter = (key, value) => setFilters(previous => ({ ...previous, [key]: value }));
   const activeFilters = Object.entries(filters).filter(([key, value]) => value !== '' && value !== 'Any');
 
@@ -136,7 +145,7 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
         <label>Company<input value={filters.company} onChange={event => updateFilter('company', event.target.value)} placeholder="Company name"/></label>
         <label>Employment type<select value={filters.type} onChange={event => updateFilter('type', event.target.value)}>{['Any', 'Full-time', 'Part-time', 'Internship', 'Contract'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Work arrangement<select value={filters.mode} onChange={event => updateFilter('mode', event.target.value)}>{['Any', 'Remote', 'Hybrid', 'On-site'].map(value => <option key={value}>{value}</option>)}</select></label>
-        <label>Experience level<select value={filters.experience} onChange={event => updateFilter('experience', event.target.value)}>{['Any', 'Internship', 'Entry-level', 'Senior'].map(value => <option key={value}>{value}</option>)}</select></label>
+        <label>Experience level<select value={filters.experience} onChange={event => updateFilter('experience', event.target.value)}>{['Any', 'Internship', 'Entry-level', 'Mid-level', 'Senior'].map(value => <option key={value}>{value}</option>)}</select></label>
         <label>Minimum annual salary ($)<input type="number" min="0" step="1000" value={filters.minSalary} onChange={event => updateFilter('minSalary', event.target.value)} placeholder="No minimum"/></label>
         <label>Maximum annual salary ($)<input type="number" min="0" step="1000" value={filters.maxSalary} onChange={event => updateFilter('maxSalary', event.target.value)} placeholder="No maximum"/></label>
       </div>
@@ -154,7 +163,7 @@ export default function Discover({ jobs, profile, confirmed, saved, started, job
     {confirmed && !loading && matchesReady && !job && <div className="card">
       <h2>{available.length === 0 && activeFilters.length ? 'No jobs match your filters' : matches.length ? 'You have reviewed all matches' : 'No matching jobs'}</h2>
       <p>{activeFilters.length ? 'Remove some filters or clear all filters to see more jobs.' : 'Update your qualifications or broaden your preferences to find other opportunities.'}</p>
-      {matches.length > 0 && <button onClick={() => setSkipped([])}>Review skipped jobs</button>}
+      {matches.length > 0 && skipped.length > 0 && <button onClick={() => setSkipped([])}>Review skipped jobs</button>}
     </div>}
     <p id="swipe-help" className="muted">Hold and drag the job card left to pass or right to open the application. The card highlights your choice; release near the center to cancel. You can also use the buttons or focus the card and use left/right arrow keys. Skips are remembered in this browser tab for your account.</p>
     <p role="status" aria-live="polite">{pendingAction || decisionNotice}</p>

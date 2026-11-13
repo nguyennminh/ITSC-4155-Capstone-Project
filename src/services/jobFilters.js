@@ -2,20 +2,29 @@
 export const defaultJobFilters = { keyword: '', location: '', company: '', type: 'Any', mode: 'Any', experience: 'Any', minSalary: '', maxSalary: '' };
 
 export function annualSalaryRange(value) {
-  const text = String(value || '');
-  if (/\/\s*(?:hour|hr)\b/i.test(text)) return null;
-  const amounts = [...text.matchAll(/\$\s*([\d,]+(?:\.\d+)?)(\s*[kK])?/g)]
+  const text = String(value || '').trim();
+  // Do not treat hourly, weekly, monthly, daily or one-off compensation as annual pay.
+  if (!text || /(?:\/|\bper\s+)(?:hour|hr|day|week|wk|month|mo)\b|\b(?:hourly|weekly|monthly|daily|bonus|sign.on)\b/i.test(text)) return null;
+  const amounts = [...text.matchAll(/\$\s*([\d,]+(?:\.\d+)?)\s*([kK])?\b/g)]
     .map(match => Number(match[1].replaceAll(',', '')) * (match[2] ? 1000 : 1));
-  if (!amounts.length) return null;
+  if (!amounts.length || amounts.some(amount => !Number.isFinite(amount) || amount < 1000)) return null;
   return { min: Math.min(...amounts), max: Math.max(...amounts) };
 }
 
 export function jobExperience(job) {
-  if (job.experienceLevel) return String(job.experienceLevel);
+  const explicit = String(job.experienceLevel || '').trim();
+  if (explicit) {
+    if (/intern/i.test(explicit)) return 'Internship';
+    if (/entry|junior|graduate|associate/i.test(explicit)) return 'Entry-level';
+    if (/mid|intermediate/i.test(explicit)) return 'Mid-level';
+    if (/senior|staff|principal|lead/i.test(explicit)) return 'Senior';
+    return 'Unknown';
+  }
   const title = String(job.title || '');
   if (/\b(?:intern|internship)\b/i.test(title)) return 'Internship';
-  if (/\b(?:junior|jr\.?|entry.level|graduate)\b/i.test(title)) return 'Entry-level';
+  if (/\b(?:junior|jr\.?|entry[ -]level|graduate)\b/i.test(title)) return 'Entry-level';
   if (/\b(?:senior|sr\.?|staff|principal|lead)\b/i.test(title)) return 'Senior';
+  if (/\b(?:mid[ -]level|midlevel|intermediate)\b/i.test(title)) return 'Mid-level';
   return 'Unknown';
 }
 
@@ -30,8 +39,8 @@ export function matchesJobFilters(job, filters) {
   if (filters.minSalary !== '' || filters.maxSalary !== '') {
     const range = annualSalaryRange(job.salary);
     if (!range) return false;
-    if (filters.minSalary !== '' && range.max < Number(filters.minSalary)) return false;
-    if (filters.maxSalary !== '' && range.min > Number(filters.maxSalary)) return false;
+    if (filters.minSalary !== '' && (Number(filters.minSalary) < 0 || !Number.isFinite(Number(filters.minSalary)) || range.max < Number(filters.minSalary))) return false;
+    if (filters.maxSalary !== '' && (Number(filters.maxSalary) < 0 || !Number.isFinite(Number(filters.maxSalary)) || range.min > Number(filters.maxSalary))) return false;
   }
   return true;
 }
